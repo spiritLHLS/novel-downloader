@@ -291,15 +291,15 @@ def _eval_xpath(xpath: str, element: Any, base_url: str) -> list[str]:
     if legado_attr:
         # 用 XPath 选出元素，再按 legado_attr 提取
         try:
-            elements = element.xpath(selector)
+            elements: list[Any] = list(element.xpath(selector))
         except Exception as e:
             logger.debug("XPath 执行失败 %r: %s", selector, e)
             return []
-        texts = []
+        attr_texts: list[str] = []
         for el in elements:
             val = _extract_attr_from_element(el, legado_attr, base_url)
-            texts.extend(val)
-        return texts
+            attr_texts.extend(val)
+        return attr_texts
 
     # 纯 XPath（可能直接返回字符串）
     try:
@@ -349,10 +349,10 @@ def _eval_css(rule: str, element: Any, base_url: str) -> list[str]:
 def _css_select_elements(selector: str, element: Any) -> list[Any]:
     """用 CSS 选择器在 element 内选取子元素。"""
     try:
-        from lxml.cssselect import CSSSelector  # type: ignore[import]
+        from lxml.cssselect import CSSSelector
 
         sel = CSSSelector(selector)
-        return sel(element)
+        return list(sel(element))
     except ImportError:
         # cssselect 未安装，降级为 lxml 内置 find_class / tag 等
         logger.debug("cssselect 未安装，无法使用 CSS 规则: %s", selector)
@@ -361,7 +361,7 @@ def _css_select_elements(selector: str, element: Any) -> list[Any]:
         logger.debug("CSS 选择失败 %r: %s", selector, e)
         # 尝试作为简单标签名
         try:
-            return element.xpath(f".//{selector}")
+            return list(element.xpath(f".//{selector}"))
         except Exception:
             return []
 
