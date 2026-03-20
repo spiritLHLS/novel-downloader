@@ -105,7 +105,8 @@ def yiove_parser(raw: Any) -> list[dict[str, Any]]:
         for key in ("data", "result", "list", "shuyuans", "sources"):
             if isinstance(raw.get(key), list):
                 return raw[key]
-    raise ValueError(f"无法从响应中提取书源数组: {list(raw.keys()) if isinstance(raw, dict) else type(raw)}")
+    keys = list(raw.keys()) if isinstance(raw, dict) else type(raw)
+    raise ValueError(f"无法从响应中提取书源数组: {keys}")
 
 
 PARSERS: dict[str, Any] = {

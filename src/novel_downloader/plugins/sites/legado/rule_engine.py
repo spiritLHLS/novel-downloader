@@ -23,6 +23,7 @@ Legado 书源规则引擎。
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import re
 from typing import Any
@@ -109,10 +110,8 @@ def eval_rule(
         processed = []
         for t in texts:
             for pattern, replacement in transforms:
-                try:
-                    t = re.sub(pattern, replacement, t, flags=re.DOTALL)
-                except re.error:
-                    pass
+                    with contextlib.suppress(re.error):
+                        t = re.sub(pattern, replacement, t, flags=re.DOTALL)
             t = t.strip()
             if t:
                 processed.append(t)

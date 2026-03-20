@@ -161,7 +161,11 @@ class LegadoCmd(Command):
         if isinstance(data, dict):
             data = [data]
         if not isinstance(data, list):
-            ui.error(t("Expected a JSON array or object, got: {type}").format(type=type(data).__name__))
+            ui.error(
+                t("Expected a JSON array or object, got: {type}").format(
+                    type=type(data).__name__
+                )
+            )
             return
 
         ok, fail = 0, 0
@@ -246,7 +250,9 @@ class LegadoCmd(Command):
 
         from ..ui_adapters import CLIDownloadUI, CLIExportUI, CLILoginUI, CLIProcessUI
 
-        config_path: Path | None = Path(args.config) if getattr(args, "config", None) else None
+        config_path: Path | None = (
+            Path(args.config) if getattr(args, "config", None) else None
+        )
         formats: list[str] | None = getattr(args, "format", None)
 
         books = [
@@ -271,7 +277,6 @@ class LegadoCmd(Command):
 
         import asyncio
 
-        login_ui = CLILoginUI()
         download_ui = CLIDownloadUI()
         client = registrar.get_client("legado", adapter.get_client_config("legado"))
 

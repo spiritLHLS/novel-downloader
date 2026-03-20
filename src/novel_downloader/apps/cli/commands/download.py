@@ -64,7 +64,8 @@ class DownloadCmd(Command):
             "--legado-source",
             metavar="FILE",
             help=t(
-                "Path to a Legado book source JSON file (enables Legado source matching)."
+                "Path to a Legado book source JSON file"
+                " (enables Legado source matching)."
             ),
         )
 

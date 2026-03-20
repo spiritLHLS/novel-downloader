@@ -104,13 +104,16 @@ class LegadoParser(BaseParser):
         # ---- 章节目录 ----
         chapters = self._parse_toc(toc_tree, source, base_url)
 
-        if not chapters:
+        if not chapters and toc_html != info_html:
             # 如果没有从目录页解析到章节，尝试从信息页解析
-            if toc_html != info_html:
-                chapters = self._parse_toc(info_tree, source, base_url)
+            chapters = self._parse_toc(info_tree, source, base_url)
 
         if not chapters:
-            logger.warning("书源 %r 未解析到任何章节（url=%s）", source.display_name, base_url)
+            logger.warning(
+                "书源 %r 未解析到任何章节（url=%s）",
+                source.display_name,
+                base_url,
+            )
             # 仍返回书籍信息，只是没有章节
             chapters = []
 
@@ -125,7 +128,10 @@ class LegadoParser(BaseParser):
             "tags": tags,
             "word_count": word_count,
             "volumes": volumes,
-            "extra": {"source": source.display_name, "source_url": source.book_source_url},
+            "extra": {
+                "source": source.display_name,
+                "source_url": source.book_source_url,
+            },
         }
 
     def _parse_toc(

@@ -204,4 +204,7 @@ class BookSource:
         return self.book_source_name or self.book_source_url
 
     def __repr__(self) -> str:
-        return f"BookSource(name={self.book_source_name!r}, url={self.book_source_url!r})"
+        return (
+            f"BookSource(name={self.book_source_name!r},"
+            f" url={self.book_source_url!r})"
+        )
