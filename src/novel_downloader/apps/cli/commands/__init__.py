@@ -12,6 +12,7 @@ from .clean import CleanCmd
 from .config import ConfigCmd
 from .download import DownloadCmd
 from .export import ExportCmd
+from .legado import LegadoCmd
 from .search import SearchCmd
 
-commands = [CleanCmd, ConfigCmd, DownloadCmd, ExportCmd, SearchCmd]
+commands = [CleanCmd, ConfigCmd, DownloadCmd, ExportCmd, LegadoCmd, SearchCmd]

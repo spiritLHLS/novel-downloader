@@ -28,6 +28,9 @@ HTML_CSS_INDEX_PATH = RES / "styles" / "html_index.css"
 HTML_CSS_CHAPTER_PATH = RES / "styles" / "html_chapter.css"
 
 # JSON
+# Legado book sources directory (bundled built-in sources)
+LEGADO_SOURCES_DIR = RES / "legado_sources"
+
 FANQIENOVEL_MAP_PATH = RES / "json" / "fanqienovel.json"
 HONGXIUZHAO_MAP_PATH = RES / "json" / "hongxiuzhao.json"
 LINOVELIB_MAP_PATH = RES / "json" / "linovelib.json"

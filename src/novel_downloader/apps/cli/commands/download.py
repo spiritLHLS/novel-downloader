@@ -60,12 +60,40 @@ class DownloadCmd(Command):
             nargs="+",
             help=t("Output format(s) (default: config)"),
         )
+        parser.add_argument(
+            "--legado-source",
+            metavar="FILE",
+            help=t(
+                "Path to a Legado book source JSON file (enables Legado source matching)."
+            ),
+        )
 
     @classmethod
     def run(cls, args: Namespace) -> None:
         config_path: Path | None = Path(args.config) if args.config else None
         site: str | None = args.site
         formats: list[str] | None = args.format
+
+        # ---- 加载 Legado 书源（若指定）----
+        legado_source: str | None = getattr(args, "legado_source", None)
+        if legado_source:
+            from novel_downloader.plugins.sites.legado.manager import (
+                book_source_manager,
+            )
+
+            count = book_source_manager.load_source_file(legado_source)
+            if count == 0:
+                ui.warn(
+                    t("No valid book sources loaded from: {path}").format(
+                        path=legado_source
+                    )
+                )
+            else:
+                ui.info(
+                    t("Loaded {n} Legado book source(s) from {path}.").format(
+                        n=count, path=legado_source
+                    )
+                )
 
         # book_ids
         if site:  # SITE MODE

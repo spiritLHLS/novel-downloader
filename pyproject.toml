@@ -147,6 +147,7 @@ include = ["novel_downloader", "novel_downloader.*"]
 "novel_downloader.resources.scripts" = ["*.js"]
 "novel_downloader.resources.json" = ["*.json"]
 "novel_downloader.resources.styles" = ["*.css"]
+"novel_downloader.resources.legado_sources" = ["*.json"]
 "novel_downloader.locales" = ["*/LC_MESSAGES/*.mo"]
 
 [tool.setuptools.dynamic]

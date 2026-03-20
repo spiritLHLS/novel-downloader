@@ -66,6 +66,7 @@ def resolve_book_url(url: str) -> BookURLInfo | None:
 
       * If a hint rule matches, log the hint and return None.
       * If an extractor matches, return a BookURLInfo dict.
+      * Falls back to Legado book source matching if any sources are loaded.
 
     :param url: URL string.
     :return: BookURLInfo dict or None if unresolved.
@@ -73,6 +74,20 @@ def resolve_book_url(url: str) -> BookURLInfo | None:
     host, path, query = _normalize_host_and_path(url)
     if extractor := _REGISTRY.get(host):
         return extractor(path, query)
+
+    # 尝试 Legado 书源匹配（仅在已加载书源时生效）
+    try:
+        from novel_downloader.plugins.sites.legado.manager import (
+            book_source_manager,
+        )
+
+        if book_source_manager.has_source_for_url(url):
+            book_id = book_source_manager.register_url(url)
+            logger.info("URL 匹配 Legado 书源，book_id=%s（url=%s）", book_id, url)
+            return _make_info("legado", book_id)
+    except Exception as _e:
+        logger.debug("Legado 书源检查失败: %s", _e)
+
     return None
 
 
