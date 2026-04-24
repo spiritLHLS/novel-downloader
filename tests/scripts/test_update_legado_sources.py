@@ -76,3 +76,69 @@ def test_main_returns_nonzero_when_any_source_failed(
     monkeypatch.setattr(module, "process_source", fake_process_source)
 
     assert module.main() == 1
+
+
+def test_process_source_fails_on_invalid_json(monkeypatch, tmp_path: Path) -> None:
+    module = load_update_module()
+    output_dir = tmp_path / "legado_sources"
+    output_dir.mkdir()
+
+    monkeypatch.setattr(module, "OUTPUT_DIR", output_dir)
+    monkeypatch.setattr(module, "fetch_url", lambda url: b"{invalid json}")
+    monkeypatch.setattr(module.time, "sleep", lambda _: None)
+
+    status = module.process_source(
+        {
+            "name": "sample",
+            "urls": ["https://example.invalid/sample.json"],
+            "output": "sample.json",
+        }
+    )
+
+    assert status is module.ProcessStatus.FAILED
+    assert not (output_dir / "sample.json").exists()
+
+
+def test_process_source_fails_when_source_count_below_threshold(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    module = load_update_module()
+    output_dir = tmp_path / "legado_sources"
+    output_dir.mkdir()
+
+    payload = b'[{"bookSourceUrl":"https://example.invalid/book"}]'
+    monkeypatch.setattr(module, "OUTPUT_DIR", output_dir)
+    monkeypatch.setattr(module, "fetch_url", lambda url: payload)
+    monkeypatch.setattr(module.time, "sleep", lambda _: None)
+
+    status = module.process_source(
+        {
+            "name": "sample",
+            "urls": ["https://example.invalid/sample.json"],
+            "output": "sample.json",
+            "min_size": 2,
+        }
+    )
+
+    assert status is module.ProcessStatus.FAILED
+    assert not (output_dir / "sample.json").exists()
+
+
+def test_process_source_fails_on_unknown_parser(monkeypatch, tmp_path: Path) -> None:
+    module = load_update_module()
+    output_dir = tmp_path / "legado_sources"
+    output_dir.mkdir()
+
+    monkeypatch.setattr(module, "OUTPUT_DIR", output_dir)
+
+    status = module.process_source(
+        {
+            "name": "sample",
+            "urls": ["https://example.invalid/sample.json"],
+            "output": "sample.json",
+            "parser": "missing_parser",
+        }
+    )
+
+    assert status is module.ProcessStatus.FAILED

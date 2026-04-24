@@ -16,6 +16,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -34,5 +36,5 @@ jobs:
             echo "书源文件无变化，跳过提交。"
           else
             git commit -m "chore(data): update bundled Legado book sources"
-            git push
+            git push origin HEAD:${{ github.ref_name }}
           fi

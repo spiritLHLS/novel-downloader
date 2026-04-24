@@ -95,7 +95,7 @@
 若启用了 `enable_ocr`, 需安装额外的图像处理依赖
 
 ```bash
-pip install novel-downloader[image-utils]
+pip install novel-downloader-spiritlhl[image-utils]
 ```
 
 OCR 功能依赖 `PaddleOCR` 及其模型, 请参考安装指南:

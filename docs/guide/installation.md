@@ -17,8 +17,10 @@ source .venv/bin/activate
 (1) 从 PyPI 安装
 
 ```bash
-pip install novel-downloader
+pip install novel-downloader-spiritlhl
 ```
+
+说明: PyPI 发行包名为 `novel-downloader-spiritlhl`, 安装后的导入模块与 CLI 命令保持不变。
 
 安装后将提供以下可执行命令:
 
@@ -28,7 +30,7 @@ pip install novel-downloader
 (2) 安装最新开发版 (GitHub)
 
 ```bash
-git clone https://github.com/saudadez21/novel-downloader.git
+git clone https://github.com/spiritLHLS/novel-downloader.git
 cd novel-downloader
 ```
 
@@ -58,7 +60,7 @@ Web GUI 基于 `NiceGUI`, 默认不会随主程序安装。
 如需使用 Web 图形界面, 请先安装对应可选依赖:
 
 ```bash
-pip install novel-downloader[web-ui]
+pip install novel-downloader-spiritlhl[web-ui]
 ```
 
 启动 GUI：
@@ -138,7 +140,7 @@ OCR 分为两部分:
 (1) 安装扩展依赖
 
 ```bash
-pip install novel-downloader[image-utils]
+pip install novel-downloader-spiritlhl[image-utils]
 ```
 
 这将安装:

@@ -1,17 +1,17 @@
 # novel-downloader
 
-[![PyPI](https://img.shields.io/pypi/v/novel-downloader.svg)](https://pypi.org/project/novel-downloader/)
-[![Python](https://img.shields.io/pypi/pyversions/novel-downloader.svg)](https://www.python.org/downloads/)
-[![CI](https://github.com/saudadez21/novel-downloader/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/saudadez21/novel-downloader/actions/workflows/ci.yml)
-[![Hits-of-Code](https://hitsofcode.com/github/saudadez21/novel-downloader?branch=main&label=Hits-of-Code)](https://hitsofcode.com/github/saudadez21/novel-downloader/view?branch=main&label=Hits-of-Code)
+[![PyPI](https://img.shields.io/pypi/v/novel-downloader-spiritlhl.svg)](https://pypi.org/project/novel-downloader-spiritlhl/)
+[![Python](https://img.shields.io/pypi/pyversions/novel-downloader-spiritlhl.svg)](https://www.python.org/downloads/)
+[![CI](https://github.com/spiritLHLS/novel-downloader/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/spiritLHLS/novel-downloader/actions/workflows/ci.yml)
+[![Hits-of-Code](https://hitsofcode.com/github/spiritLHLS/novel-downloader?branch=main&label=Hits-of-Code)](https://hitsofcode.com/github/spiritLHLS/novel-downloader/view?branch=main&label=Hits-of-Code)
 
-[中文](./README.md) | [English](./README.en.md)
+[中文](https://github.com/spiritLHLS/novel-downloader/blob/main/README.md) | [English](https://github.com/spiritLHLS/novel-downloader/blob/main/README.en.md)
 
 异步、可扩展的小说下载与处理工具包。
 
 支持断点续爬、多格式导出、文本处理流水线, 并提供 CLI 与可选 Web 界面。
 
-**文档**: [项目文档](https://saudadez21.github.io/novel-downloader/)
+**文档**: [项目文档](https://github.com/spiritLHLS/novel-downloader/blob/main/docs/index.md)
 
 **运行要求**: Python 3.11+ (开发环境: Python 3.13)
 
@@ -28,7 +28,7 @@
 - **插件系统:** 可扩展站点解析器、导出器、Pipeline 等
 - **CLI 与可选 Web GUI**
 
-完整功能列表见: [功能总览](https://saudadez21.github.io/novel-downloader/)
+完整功能列表见: [功能总览](https://github.com/spiritLHLS/novel-downloader/blob/main/docs/index.md)
 
 ---
 
@@ -37,16 +37,18 @@
 使用 `pip` 安装最新稳定版本:
 
 ```bash
-pip install -U novel-downloader
+pip install -U novel-downloader-spiritlhl
 ```
+
+PyPI 发行包名为 `novel-downloader-spiritlhl`, 安装后的导入名与 CLI 命令保持不变, 仍然使用 `novel_downloader`、`novel-cli`、`novel-web`。
 
 如需启用 Web GUI:
 
 ```bash
-pip install novel-downloader[web-ui]
+pip install novel-downloader-spiritlhl[web-ui]
 ```
 
-如需启用其它可选功能 (Web UI、图片转文字、额外后端等), 请参见: [安装指南](https://saudadez21.github.io/novel-downloader/guide/installation/)
+如需启用其它可选功能 (Web UI、图片转文字、额外后端等), 请参见: [安装指南](https://github.com/spiritLHLS/novel-downloader/blob/main/docs/guide/installation.md)
 
 ---
 
@@ -60,7 +62,7 @@ novel-cli download https://www.example.com/book/123/
 novel-cli download --site n23qb 12282
 ```
 
-更多示例见: [CLI 使用示例](https://saudadez21.github.io/novel-downloader/guide/cli-examples/)
+更多示例见: [CLI 使用示例](https://github.com/spiritLHLS/novel-downloader/blob/main/docs/guide/cli-examples.md)
 
 ## 编程接口 (Programmatic API)
 
@@ -90,14 +92,14 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-更多示例见: [API 示例](https://saudadez21.github.io/novel-downloader/reference/api-examples/)
+更多示例见: [API 示例](https://github.com/spiritLHLS/novel-downloader/blob/main/docs/reference/api-examples.md)
 
 ---
 
 ## 贡献与开发
 
 ```bash
-git clone https://github.com/saudadez21/novel-downloader.git
+git clone https://github.com/spiritLHLS/novel-downloader.git
 cd novel-downloader
 
 # 可选: 为多语言支持编译翻译文件
@@ -111,6 +113,12 @@ pip install .
 ```
 
 欢迎提交 Issue / PR。
+
+---
+
+## 致谢
+
+本仓库基于上游项目 `saudadez21/novel-downloader` 演化维护, 在此向原项目及历史贡献者致谢。
 
 ---
 

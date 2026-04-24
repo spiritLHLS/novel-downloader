@@ -152,7 +152,7 @@ def validate_sources(sources: list[dict[str, Any]]) -> list[dict[str, Any]]:
 HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (compatible; novel-downloader-updater/1.0; "
-        "+https://github.com/saudadez21/novel-downloader)"
+        "+https://github.com/spiritLHLS/novel-downloader)"
     ),
     "Accept": "application/json, text/plain, */*",
 }
@@ -180,11 +180,19 @@ def process_source(cfg: dict[str, Any]) -> ProcessStatus:
     output_name: str = cfg["output"]
     min_size: int = cfg.get("min_size", 1)
     parser_name: str = cfg.get("parser", "default_parser")
-    parser = PARSERS.get(parser_name, default_parser)
+    parser = (
+        default_parser
+        if parser_name == "default_parser"
+        else PARSERS.get(parser_name)
+    )
 
     output_path = OUTPUT_DIR / output_name
 
     logger.info("处理书源: %s", name)
+
+    if parser is None:
+        logger.error("  未知解析器 %r，跳过 %s", parser_name, output_name)
+        return ProcessStatus.FAILED
 
     raw_data: bytes | None = None
     for url in urls:

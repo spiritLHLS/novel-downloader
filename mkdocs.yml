@@ -1,8 +1,8 @@
 site_name: NovelDownloader
 site_description: "NovelDownloader: A toolkit for downloading and processing novels."
-site_author: "Saudade Z"
+site_author: "spiritlhl"
 repo_name: "NovelDownloader"
-repo_url: "https://github.com/saudadez21/novel-downloader"
+repo_url: "https://github.com/spiritLHLS/novel-downloader"
 edit_uri: edit/main/docs/
 
 theme:
