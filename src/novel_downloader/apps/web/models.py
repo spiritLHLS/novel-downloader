@@ -10,7 +10,7 @@ import asyncio
 import time
 from collections import deque
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 from statistics import fmean
 from uuid import uuid4
@@ -18,7 +18,7 @@ from uuid import uuid4
 from novel_downloader.schemas import LoginField
 
 
-class Status(str, Enum):
+class Status(StrEnum):
     QUEUED = "queued"
     RUNNING = "running"
     PROCESSING = "processing"

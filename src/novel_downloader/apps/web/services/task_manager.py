@@ -115,6 +115,18 @@ class TaskManager:
         self._worker_tasks.clear()
         self._export_worker_task = self._process_worker_task = None
 
+        client_results = await asyncio.gather(
+            *(client.close() for client in self._clients.values()),
+            return_exceptions=True,
+        )
+        for result in client_results:
+            if isinstance(result, Exception) and not isinstance(
+                result, asyncio.CancelledError
+            ):
+                print(f"Client error during shutdown: {result!r}")
+
+        self._clients.clear()
+
     # ---------- internals ----------
     def _get_client(self, site: str) -> ClientProtocol:
         """Get or create a client instance for a site."""

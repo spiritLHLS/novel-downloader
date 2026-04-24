@@ -24,7 +24,6 @@ Legado 书源管理子命令。
 from __future__ import annotations
 
 import json
-import sys
 from argparse import ArgumentParser, Namespace
 from pathlib import Path
 
@@ -195,7 +194,6 @@ class LegadoCmd(Command):
     @classmethod
     def _run_download(cls, args: Namespace) -> None:
         """使用书源下载指定 URL 的小说（代理 download 命令）。"""
-        from novel_downloader.apps.cli.commands.download import DownloadCmd
         from novel_downloader.plugins.sites.legado.manager import book_source_manager
 
         source_file = args.source_file
@@ -248,7 +246,7 @@ class LegadoCmd(Command):
         from novel_downloader.plugins import registrar
         from novel_downloader.schemas import BookConfig
 
-        from ..ui_adapters import CLIDownloadUI, CLIExportUI, CLILoginUI, CLIProcessUI
+        from ..ui_adapters import CLIDownloadUI, CLIExportUI, CLIProcessUI
 
         config_path: Path | None = (
             Path(args.config) if getattr(args, "config", None) else None

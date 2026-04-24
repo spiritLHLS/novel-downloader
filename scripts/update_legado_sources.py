@@ -15,7 +15,9 @@ scripts/update_legado_sources.py
 书源来源
 --------
 - XIU2/Yuedu      : https://github.com/XIU2/Yuedu
-- shuyuan.yiove.com: API
+- tickmao/Novel   : https://github.com/tickmao/Novel
+
+实际下载项以 SOURCES 配置为准。
 """
 
 from __future__ import annotations
@@ -24,6 +26,7 @@ import json
 import logging
 import sys
 import time
+from enum import Enum
 from pathlib import Path
 from typing import Any
 from urllib.error import URLError
@@ -78,6 +81,12 @@ logging.basicConfig(
     datefmt="%H:%M:%S",
 )
 logger = logging.getLogger(__name__)
+
+
+class ProcessStatus(Enum):
+    UPDATED = "updated"
+    SKIPPED = "skipped"
+    FAILED = "failed"
 
 # ---------------------------------------------------------------------------
 # 解析器
@@ -160,11 +169,11 @@ def fetch_url(url: str) -> bytes:
 # ---------------------------------------------------------------------------
 
 
-def process_source(cfg: dict[str, Any]) -> bool:
+def process_source(cfg: dict[str, Any]) -> ProcessStatus:
     """
     处理单个书源配置。
 
-    :return: True 表示成功更新，False 表示跳过（已与现有相同或下载失败）。
+    :return: 返回 UPDATED / SKIPPED / FAILED 三种明确状态。
     """
     name: str = cfg["name"]
     urls: list[str] = cfg["urls"]
@@ -189,21 +198,21 @@ def process_source(cfg: dict[str, Any]) -> bool:
 
     if raw_data is None:
         logger.error("  所有 URL 均下载失败，跳过 %s", output_name)
-        return False
+        return ProcessStatus.FAILED
 
     # 解析 JSON
     try:
         raw_json = json.loads(raw_data.decode("utf-8", errors="replace"))
     except json.JSONDecodeError as e:
         logger.error("  JSON 解析失败: %s", e)
-        return False
+        return ProcessStatus.FAILED
 
     # 提取书源列表
     try:
         sources: list[dict[str, Any]] = parser(raw_json)
     except ValueError as e:
         logger.error("  书源提取失败: %s", e)
-        return False
+        return ProcessStatus.FAILED
 
     # 验证
     sources = validate_sources(sources)
@@ -214,7 +223,7 @@ def process_source(cfg: dict[str, Any]) -> bool:
             min_size,
             len(sources),
         )
-        return False
+        return ProcessStatus.FAILED
 
     # 与现有文件比较，无变化则跳过
     if output_path.exists():
@@ -222,7 +231,7 @@ def process_source(cfg: dict[str, Any]) -> bool:
             existing = json.loads(output_path.read_text(encoding="utf-8"))
             if existing == sources:
                 logger.info("  内容无变化，跳过写入（共 %d 个书源）", len(sources))
-                return False
+                return ProcessStatus.SKIPPED
         except Exception:
             pass  # 文件损坏则覆盖
 
@@ -232,7 +241,7 @@ def process_source(cfg: dict[str, Any]) -> bool:
         encoding="utf-8",
     )
     logger.info("  已写入 %d 个书源 → %s", len(sources), output_path)
-    return True
+    return ProcessStatus.UPDATED
 
 
 def main() -> int:
@@ -240,11 +249,17 @@ def main() -> int:
 
     updated = 0
     failed = 0
+    skipped = 0
 
     for cfg in SOURCES:
         try:
-            if process_source(cfg):
+            status = process_source(cfg)
+            if status is ProcessStatus.UPDATED:
                 updated += 1
+            elif status is ProcessStatus.FAILED:
+                failed += 1
+            else:
+                skipped += 1
         except Exception as e:
             logger.exception("处理 %r 时发生意外错误: %s", cfg.get("name"), e)
             failed += 1
@@ -253,7 +268,7 @@ def main() -> int:
         "完成：更新 %d 个书源文件，失败 %d 个，跳过 %d 个。",
         updated,
         failed,
-        len(SOURCES) - updated - failed,
+        skipped,
     )
     return 1 if failed else 0
 

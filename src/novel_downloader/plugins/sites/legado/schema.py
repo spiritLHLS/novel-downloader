@@ -82,6 +82,7 @@ class BookSource:
     book_source_name: str = ""        # 书源名称
     book_source_type: int = 0         # 类型：0=文字, 1=音频, 2=图片
     enabled: bool = True              # 是否启用
+    book_url_pattern: str = ""       # 书籍 URL 匹配规则（Legado bookUrlPattern）
     book_source_comment: str = ""     # 书源备注
     header: dict[str, str] = field(default_factory=dict)  # 自定义 HTTP 请求头
     search_url: str = ""              # 搜索 URL 模板（支持 {{key}} {{page}}）
@@ -93,7 +94,7 @@ class BookSource:
     _source_file: str = field(default="", repr=False, compare=False)
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "BookSource":
+    def from_dict(cls, data: dict[str, Any]) -> BookSource:
         """从字典（Legado JSON 对象）构建 BookSource。"""
 
         def _header(raw: Any) -> dict[str, str]:
@@ -164,6 +165,7 @@ class BookSource:
             book_source_name=data.get("bookSourceName", ""),
             book_source_type=int(data.get("bookSourceType", 0)),
             enabled=bool(data.get("enabled", True)),
+            book_url_pattern=str(data.get("bookUrlPattern", "") or ""),
             book_source_comment=data.get("bookSourceComment", ""),
             header=_header(data.get("header", "")),
             search_url=data.get("searchUrl", ""),
@@ -174,7 +176,7 @@ class BookSource:
         )
 
     @classmethod
-    def from_json(cls, json_str: str) -> "list[BookSource]":
+    def from_json(cls, json_str: str) -> list[BookSource]:
         """从 JSON 字符串解析，支持单个对象或数组。"""
         data = json.loads(json_str)
         if isinstance(data, dict):
@@ -188,7 +190,7 @@ class BookSource:
         return sources
 
     @classmethod
-    def from_file(cls, path: str | Path) -> "list[BookSource]":
+    def from_file(cls, path: str | Path) -> list[BookSource]:
         """从 JSON 文件加载书源列表。"""
         path = Path(path)
         with open(path, encoding="utf-8") as f:

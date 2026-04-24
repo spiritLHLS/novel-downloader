@@ -15,8 +15,8 @@ from novel_downloader.infra.persistence.state import state_mgr
 
 def get_translation(lang: str) -> gettext.NullTranslations:
     try:
-        mo_path = (
-            files("novel_downloader.locales") / lang / "LC_MESSAGES" / "messages.mo"
+        mo_path = files("novel_downloader.locales").joinpath(
+            lang, "LC_MESSAGES", "messages.mo"
         )
         with mo_path.open("rb") as f:
             return gettext.GNUTranslations(f)

@@ -6,6 +6,7 @@ novel_downloader.plugins.sites.shaoniandream.parser
 
 import base64
 import json
+import logging
 import re
 from typing import Any
 
@@ -22,6 +23,8 @@ from novel_downloader.schemas import (
     MediaResource,
     VolumeInfoDict,
 )
+
+logger = logging.getLogger(__name__)
 
 
 @registrar.register_parser()
@@ -133,8 +136,23 @@ class ShaoniandreamParser(BaseParser):
         chapter_pics = data.get("chapterpic", [])
 
         # --- decode AES key/iv ---
-        key = base64.b64decode(encryt_keys[0])
-        iv = base64.b64decode(encryt_keys[1])
+        if len(encryt_keys) < 2:
+            logger.warning(
+                "Missing chapter encryption keys for shaoniandream chapter_id=%s",
+                chapter_id,
+            )
+            return None
+
+        try:
+            key = base64.b64decode(encryt_keys[0])
+            iv = base64.b64decode(encryt_keys[1])
+        except (TypeError, ValueError) as e:
+            logger.warning(
+                "Invalid chapter encryption keys for shaoniandream chapter_id=%s: %s",
+                chapter_id,
+                e,
+            )
+            return None
 
         def decrypt(cipher_b64: str) -> str:
             cipher_bytes = base64.b64decode(cipher_b64)

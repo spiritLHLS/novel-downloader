@@ -20,8 +20,8 @@ novel_downloader.plugins.sites.legado.manager
 from __future__ import annotations
 
 import hashlib
-import json
 import logging
+import re
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -45,6 +45,8 @@ class BookSourceManager:
         self._sources: list[BookSource] = []
         # 域名（netloc 小写）→ BookSource
         self._by_domain: dict[str, BookSource] = {}
+        # 需要按 URL 模式匹配的 Legado 书源
+        self._pattern_sources: list[tuple[re.Pattern[str], BookSource]] = []
         # 稳定 ID → 原始 URL
         self._id_to_url: dict[str, str] = {}
         # 原始 URL → 稳定 ID
@@ -114,23 +116,8 @@ class BookSourceManager:
             if not source.enabled:
                 logger.debug("书源已禁用，跳过: %s", source.display_name)
                 continue
-            try:
-                domain = urlparse(source.book_source_url).netloc.lower()
-                if not domain:
-                    continue
-                if domain not in self._by_domain:
-                    self._sources.append(source)
-                    self._by_domain[domain] = source
-                    count += 1
-                    logger.debug("已加载书源: %s (%s)", source.display_name, domain)
-                else:
-                    logger.debug(
-                        "书源域名已存在，跳过重复: %s (%s)",
-                        source.display_name,
-                        domain,
-                    )
-            except Exception as e:
-                logger.debug("注册书源失败 %r: %s", source.display_name, e)
+            if self._register_source(source):
+                count += 1
 
         logger.info(
             "从 %s 加载了 %d 个书源（共 %d 个书源已启用）",
@@ -161,12 +148,7 @@ class BookSourceManager:
         """
         if not source.book_source_url or not source.enabled:
             return False
-        domain = urlparse(source.book_source_url).netloc.lower()
-        if not domain or domain in self._by_domain:
-            return False
-        self._sources.append(source)
-        self._by_domain[domain] = source
-        return True
+        return self._register_source(source)
 
     # ------------------------------------------------------------------
     # 书源查询
@@ -186,7 +168,9 @@ class BookSourceManager:
             return None
         try:
             domain = urlparse(url).netloc.lower()
-            return self._by_domain.get(domain)
+            if domain and (source := self._by_domain.get(domain)) is not None:
+                return source
+            return self._match_source_by_pattern(url)
         except Exception:
             return None
 
@@ -262,6 +246,67 @@ class BookSourceManager:
 
     def __repr__(self) -> str:
         return f"BookSourceManager(sources={len(self._sources)})"
+
+    def _register_source(self, source: BookSource) -> bool:
+        try:
+            domains = self._source_domains(source)
+            if not domains:
+                return False
+            duplicated = next(
+                (domain for domain in domains if domain in self._by_domain),
+                None,
+            )
+            if duplicated is not None:
+                logger.debug(
+                    "书源域名已存在，跳过重复: %s (%s)",
+                    source.display_name,
+                    duplicated,
+                )
+                return False
+
+            self._sources.append(source)
+            for domain in domains:
+                self._by_domain[domain] = source
+            self._register_url_pattern(source)
+            logger.debug(
+                "已加载书源: %s (%s)",
+                source.display_name,
+                ", ".join(domains),
+            )
+            return True
+        except Exception as e:
+            logger.debug("注册书源失败 %r: %s", source.display_name, e)
+            return False
+
+    def _source_domains(self, source: BookSource) -> list[str]:
+        domain = urlparse(source.book_source_url).netloc.lower()
+        if not domain:
+            return []
+
+        domains = [domain]
+        if domain.startswith("www."):
+            domains.append(domain[4:])
+        return domains
+
+    def _register_url_pattern(self, source: BookSource) -> None:
+        pattern = source.book_url_pattern.strip()
+        if not pattern:
+            return
+
+        try:
+            self._pattern_sources.append((re.compile(pattern, re.IGNORECASE), source))
+        except re.error as e:
+            logger.debug(
+                "书源 URL 模式无效，忽略 pattern: %s (%s)",
+                source.display_name,
+                e,
+            )
+
+    def _match_source_by_pattern(self, url: str) -> BookSource | None:
+        for pattern, source in self._pattern_sources:
+            if pattern.search(url):
+                return source
+        return None
 
 
 # ---------------------------------------------------------------------------

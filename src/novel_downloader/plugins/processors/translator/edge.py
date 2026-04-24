@@ -108,9 +108,17 @@ class EdgeTranslaterProcessor:
         base64_url = parts[1].replace("-", "+").replace("_", "/")
         decoded = base64.b64decode(base64_url + "===")
         payload = json.loads(decoded)
+        expire = datetime.now()
+        exp = payload.get("exp")
+        try:
+            expire = datetime.fromtimestamp(float(exp))
+        except (TypeError, ValueError, OSError):
+            logger.debug(
+                "Edge JWT missing or invalid exp claim; token will not be cached"
+            )
         return {
             "token": token,
-            "expire": datetime.fromtimestamp(payload["exp"]),
+            "expire": expire,
         }
 
     def _get_token(self) -> str:
@@ -140,14 +148,13 @@ class EdgeTranslaterProcessor:
         if self._source.lower() != "auto":
             params["from"] = self._source
 
-        endpoint = f"{self._endpoint}?{urlencode(params)}"
-        headers = {
-            "Content-Type": "application/json",
-            "authorization": f"Bearer {self._get_token()}",
-        }
-        body = json.dumps([{"text": text.strip()}])
-
         try:
+            endpoint = f"{self._endpoint}?{urlencode(params)}"
+            headers = {
+                "Content-Type": "application/json",
+                "authorization": f"Bearer {self._get_token()}",
+            }
+            body = json.dumps([{"text": text.strip()}])
             r = requests.post(endpoint, headers=headers, data=body, timeout=20)
             if r.status_code == 200:
                 data = r.json()

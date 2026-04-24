@@ -2,8 +2,8 @@ name: Update Legado Book Sources
 
 on:
   schedule:
-    # 每周一 UTC 02:00 自动运行
-    - cron: "0 2 * * 1"
+    # 每日 UTC 02:00 自动运行
+    - cron: "0 2 * * *"
   workflow_dispatch:
 
 permissions:

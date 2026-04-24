@@ -26,7 +26,7 @@ from __future__ import annotations
 
 import logging
 from typing import Any
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urljoin
 
 from lxml import html as lxml_html
 
