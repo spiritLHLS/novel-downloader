@@ -402,7 +402,7 @@ def page_search() -> None:
 
         if total_pages > 1:
 
-            def _on_page_change(e: ValueChangeEventArguments) -> None:
+            def _on_page_change(e: ValueChangeEventArguments[Any]) -> None:
                 try:
                     state["page"] = int(e.value or 1)
                 except Exception:

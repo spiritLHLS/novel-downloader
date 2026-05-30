@@ -11,7 +11,7 @@ import os
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 from urllib.parse import quote
 
 from nicegui import ui
@@ -233,7 +233,7 @@ def page_history() -> None:
             pager_area.clear()
             if total_pages > 1:
 
-                def _on_page_change(e: ValueChangeEventArguments) -> None:
+                def _on_page_change(e: ValueChangeEventArguments[Any]) -> None:
                     nonlocal page
                     try:
                         page = int(e.value)
@@ -251,19 +251,19 @@ def page_history() -> None:
                     ).props(f"max-pages={_PAGER_WIDTH} boundary-numbers ellipses")
 
         # Handlers
-        def _on_type_change(e: ValueChangeEventArguments) -> None:
+        def _on_type_change(e: ValueChangeEventArguments[Any]) -> None:
             nonlocal type_filter
             type_filter = e.value
             _recompute_from_cache()
             _refresh()
 
-        def _on_sort_key_change(e: ValueChangeEventArguments) -> None:
+        def _on_sort_key_change(e: ValueChangeEventArguments[Any]) -> None:
             nonlocal sort_by
             sort_by = e.value
             _recompute_from_cache()
             _refresh()
 
-        def _on_sort_order_change(e: ValueChangeEventArguments) -> None:
+        def _on_sort_order_change(e: ValueChangeEventArguments[Any]) -> None:
             nonlocal sort_order, sorted_items, page
             new_order = e.value
             # Optimization: if only order changes, reverse current list
