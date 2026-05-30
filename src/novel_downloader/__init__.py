@@ -6,7 +6,7 @@ novel_downloader
 A toolkit for downloading and processing novels.
 """
 
-__version__ = "3.1.1.post2026053001"
+__version__ = "3.1.1.post2026053002"
 
 __author__ = "spiritlhl"
 __email__ = ""
