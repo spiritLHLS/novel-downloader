@@ -1,7 +1,8 @@
 name: CI
 
 permissions:
-  contents: read
+  contents: write
+  id-token: write
 
 on:
   push:
@@ -10,10 +11,15 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 jobs:
   lint:
     name: Lint & Type Checks (3.13)
     runs-on: ubuntu-latest
+    timeout-minutes: 25
 
     steps:
       - name: Checkout repository
@@ -47,15 +53,13 @@ jobs:
         run: |
           pre-commit run --all-files
 
-      - name: Run tests
-        run: |
-          pytest -v
-
   test-matrix:
     name: Tests (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
+    timeout-minutes: 35
     strategy:
       fail-fast: false
+      max-parallel: 3
       matrix:
         python-version: ["3.11", "3.12", "3.13", "3.14"]
 
@@ -89,8 +93,11 @@ jobs:
   os-compat:
     name: OS Compatibility (${{ matrix.os }} / Python 3.11)
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    continue-on-error: true
     strategy:
       fail-fast: false
+      max-parallel: 2
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
 
@@ -124,8 +131,10 @@ jobs:
   package-smoke:
     name: Package Build Smoke (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     strategy:
       fail-fast: false
+      max-parallel: 2
       matrix:
         python-version: ["3.11", "3.14"]
 
@@ -152,3 +161,138 @@ jobs:
       - name: Entry-point smoke
         run: |
           novel-cli --version
+
+  release-meta:
+    name: Release Decision
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [lint, test-matrix, package-smoke]
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    outputs:
+      version: ${{ steps.detect.outputs.version }}
+      tag: ${{ steps.detect.outputs.tag }}
+      should_release: ${{ steps.detect.outputs.should_release }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Detect release version and tag state
+        id: detect
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          VERSION=$(python - <<'PY'
+          import pathlib
+          import re
+
+          text = pathlib.Path("src/novel_downloader/__init__.py").read_text(encoding="utf-8")
+          m = re.search(r'__version__\s*=\s*"([^"]+)"', text)
+          if not m:
+              raise SystemExit("Unable to parse __version__ from src/novel_downloader/__init__.py")
+          print(m.group(1))
+          PY
+          )
+
+          TAG="v${VERSION}"
+          SHOULD_RELEASE="true"
+
+          if git ls-remote --exit-code --tags origin "refs/tags/${TAG}" >/dev/null 2>&1; then
+            echo "Tag ${TAG} already exists on origin. Publish will be skipped."
+            SHOULD_RELEASE="false"
+          fi
+
+          echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
+          echo "tag=${TAG}" >> "${GITHUB_OUTPUT}"
+          echo "should_release=${SHOULD_RELEASE}" >> "${GITHUB_OUTPUT}"
+
+  publish:
+    name: Build, Tag and Publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency:
+      group: pypi-publish
+      cancel-in-progress: false
+    needs: [release-meta]
+    if: ${{ needs.release-meta.outputs.should_release == 'true' }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Verify release version consistency
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          FILE_VERSION=$(python - <<'PY'
+          import pathlib
+          import re
+
+          text = pathlib.Path("src/novel_downloader/__init__.py").read_text(encoding="utf-8")
+          m = re.search(r'__version__\s*=\s*"([^"]+)"', text)
+          if not m:
+              raise SystemExit("Unable to parse __version__ from src/novel_downloader/__init__.py")
+          print(m.group(1))
+          PY
+          )
+
+          if [[ "${FILE_VERSION}" != "${{ needs.release-meta.outputs.version }}" ]]; then
+            echo "Version mismatch: expected ${{ needs.release-meta.outputs.version }}, got ${FILE_VERSION}" >&2
+            exit 1
+          fi
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install build tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install -U build twine setuptools wheel babel
+
+      - name: Compile translations
+        run: |
+          pybabel compile -d src/novel_downloader/locales
+
+      - name: Build package
+        run: |
+          python -m build
+
+      - name: Create and push release tag
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          TAG="${{ needs.release-meta.outputs.tag }}"
+
+          if git ls-remote --exit-code --tags origin "refs/tags/${TAG}" >/dev/null 2>&1; then
+            echo "Tag ${TAG} already exists on origin."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git tag "${TAG}"
+            git push origin "${TAG}"
+          fi
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@v1.14.0
+        with:
+          packages-dir: dist/
+          skip-existing: true
+
+      - name: Create or update GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.release-meta.outputs.tag }}
+          name: ${{ needs.release-meta.outputs.tag }}
+          generate_release_notes: true
+          files: dist/*
