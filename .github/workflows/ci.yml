@@ -10,6 +10,12 @@ on:
   pull_request:
     branches: [ main ]
   workflow_dispatch:
+    inputs:
+      force_publish_existing_version:
+        description: "Force publish even when the version tag already exists"
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -167,11 +173,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: [lint, test-matrix, package-smoke]
-    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    if: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch' }}
     outputs:
       version: ${{ steps.detect.outputs.version }}
       tag: ${{ steps.detect.outputs.tag }}
       should_release: ${{ steps.detect.outputs.should_release }}
+      reason: ${{ steps.detect.outputs.reason }}
 
     steps:
       - name: Checkout repository
@@ -200,15 +207,131 @@ jobs:
 
           TAG="v${VERSION}"
           SHOULD_RELEASE="true"
+          REASON="new-tag"
+
+          FORCE_PUBLISH="false"
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" && "${{ github.event.inputs.force_publish_existing_version || 'false' }}" == "true" ]]; then
+            FORCE_PUBLISH="true"
+          fi
 
           if git ls-remote --exit-code --tags origin "refs/tags/${TAG}" >/dev/null 2>&1; then
-            echo "Tag ${TAG} already exists on origin. Publish will be skipped."
-            SHOULD_RELEASE="false"
+            if [[ "${FORCE_PUBLISH}" == "true" ]]; then
+              echo "Tag ${TAG} already exists on origin, but force publish is enabled."
+              REASON="forced-existing-tag"
+            else
+              echo "Tag ${TAG} already exists on origin. Publish will be skipped."
+              SHOULD_RELEASE="false"
+              REASON="existing-tag"
+            fi
           fi
 
           echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
           echo "tag=${TAG}" >> "${GITHUB_OUTPUT}"
           echo "should_release=${SHOULD_RELEASE}" >> "${GITHUB_OUTPUT}"
+          echo "reason=${REASON}" >> "${GITHUB_OUTPUT}"
+
+  auto-post-bump:
+    name: Auto Hotfix Post Bump
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [release-meta]
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && github.actor != 'github-actions[bot]' && needs.release-meta.outputs.reason == 'existing-tag' }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Compute next post-release version
+        id: nextver
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          CURRENT_VERSION="${{ needs.release-meta.outputs.version }}"
+          TODAY_UTC=$(date -u +%Y%m%d)
+
+          if [[ "${CURRENT_VERSION}" =~ ^([0-9]+\.[0-9]+\.[0-9]+)(\.post([0-9]+))?$ ]]; then
+            BASE_VERSION="${BASH_REMATCH[1]}"
+          else
+            echo "Unsupported version format for auto post bump: ${CURRENT_VERSION}" >&2
+            exit 1
+          fi
+
+          # Use date-based post releases: x.y.z.postYYYYMMDDNN (NN starts from 01 each day).
+          DAY_MAX_SEQ=$(git ls-remote --tags origin "refs/tags/v${BASE_VERSION}.post${TODAY_UTC}*" \
+            | awk -F'refs/tags/v' '{print $2}' \
+            | awk -F'.post' '{print $2}' \
+            | awk -v d="${TODAY_UTC}" 'BEGIN{m=0} $1 ~ "^" d "[0-9][0-9]$" {s=substr($1, length(d)+1, 2)+0; if (s>m) m=s} END{print m}')
+
+          if [[ -z "${DAY_MAX_SEQ}" ]]; then
+            DAY_MAX_SEQ=0
+          fi
+
+          if [[ "${CURRENT_VERSION}" =~ ^${BASE_VERSION}\.post(${TODAY_UTC})([0-9]{2})$ ]]; then
+            CURRENT_SEQ="${BASH_REMATCH[2]}"
+            CURRENT_SEQ=$((10#${CURRENT_SEQ}))
+            if (( CURRENT_SEQ > DAY_MAX_SEQ )); then
+              DAY_MAX_SEQ=${CURRENT_SEQ}
+            fi
+          fi
+
+          NEXT_SEQ=$((DAY_MAX_SEQ + 1))
+          if (( NEXT_SEQ > 99 )); then
+            echo "Too many hotfix releases for ${TODAY_UTC} (max 99)." >&2
+            exit 1
+          fi
+
+          NEXT_VERSION="${BASE_VERSION}.post${TODAY_UTC}$(printf '%02d' "${NEXT_SEQ}")"
+
+          echo "next_version=${NEXT_VERSION}" >> "${GITHUB_OUTPUT}"
+          echo "Computed hotfix version: ${NEXT_VERSION}"
+
+      - name: Bump version files and push
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          NEXT_VERSION="${{ steps.nextver.outputs.next_version }}"
+
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          next_version = "${{ steps.nextver.outputs.next_version }}"
+
+          init_path = Path("src/novel_downloader/__init__.py")
+          init_text = init_path.read_text(encoding="utf-8")
+          init_text, n1 = re.subn(
+              r'(__version__\s*=\s*")([^"]+)(")',
+              rf'\g<1>{next_version}\g<3>',
+              init_text,
+              count=1,
+          )
+          if n1 != 1:
+              raise SystemExit("Failed to update __version__ in src/novel_downloader/__init__.py")
+          init_path.write_text(init_text, encoding="utf-8")
+
+          pyproject_path = Path("pyproject.toml")
+          pyproject_text = pyproject_path.read_text(encoding="utf-8")
+          pyproject_text, n2 = re.subn(
+              r'(?m)^(version\s*=\s*")([^"]+)(")',
+              rf'\g<1>{next_version}\g<3>',
+              pyproject_text,
+              count=1,
+          )
+          if n2 != 1:
+              raise SystemExit("Failed to update [tool.commitizen].version in pyproject.toml")
+          pyproject_path.write_text(pyproject_text, encoding="utf-8")
+          PY
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add src/novel_downloader/__init__.py pyproject.toml
+          git commit -m "chore(release): hotfix bump version to $NEXT_VERSION"
+          git push origin HEAD:main
 
   publish:
     name: Build, Tag and Publish
@@ -271,6 +394,22 @@ jobs:
         run: |
           python -m build
 
+      - name: Prepare date-based release metadata
+        id: rmeta
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          RELEASE_DATE=$(date -u +%Y-%m-%d)
+          RELEASE_STAMP=$(date -u +%Y%m%d)
+          TAG="${{ needs.release-meta.outputs.tag }}"
+          ARCHIVE_NAME="${TAG}-${RELEASE_STAMP}-dist.tar.gz"
+
+          tar -czf "${ARCHIVE_NAME}" dist
+
+          echo "release_date=${RELEASE_DATE}" >> "${GITHUB_OUTPUT}"
+          echo "archive_name=${ARCHIVE_NAME}" >> "${GITHUB_OUTPUT}"
+
       - name: Create and push release tag
         shell: bash
         run: |
@@ -307,6 +446,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.release-meta.outputs.tag }}
-          name: ${{ needs.release-meta.outputs.tag }}
+          name: ${{ needs.release-meta.outputs.tag }} (${{ steps.rmeta.outputs.release_date }})
           generate_release_notes: true
-          files: dist/*
+          files: |
+            dist/*
+            ${{ steps.rmeta.outputs.archive_name }}
