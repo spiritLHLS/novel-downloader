@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import operator as _op
 from dataclasses import dataclass
-from typing import Any, cast
+from typing import Any, TypeAlias, cast
 from typing import Literal as TLiteral
 
 from .ast import (
@@ -42,7 +42,7 @@ from .utils import js_nullish, js_truthy, to_int32, to_uint32, typeof_value
 # Node type aliases
 # ------------------------------
 
-type ExpressionNode = (
+ExpressionNode: TypeAlias = (
     Literal
     | StringLiteral
     | Identifier
@@ -63,14 +63,14 @@ type ExpressionNode = (
     | DeleteOp
 )
 
-type StatementNode = LetDecl | FunctionDecl | ReturnStmt | ExpressionNode
+StatementNode: TypeAlias = LetDecl | FunctionDecl | ReturnStmt | ExpressionNode
 
 # assignment reference forms
-type IdRef = tuple[TLiteral["id"], str]
-type MemberRef = tuple[TLiteral["member"], tuple[dict[Any, Any], Any]]
-type IndexListRef = tuple[TLiteral["index_list"], tuple[list[Any], int]]
-type IndexDictRef = tuple[TLiteral["index_dict"], tuple[dict[Any, Any], Any]]
-type Ref = IdRef | MemberRef | IndexListRef | IndexDictRef
+IdRef: TypeAlias = tuple[TLiteral["id"], str]
+MemberRef: TypeAlias = tuple[TLiteral["member"], tuple[dict[Any, Any], Any]]
+IndexListRef: TypeAlias = tuple[TLiteral["index_list"], tuple[list[Any], int]]
+IndexDictRef: TypeAlias = tuple[TLiteral["index_dict"], tuple[dict[Any, Any], Any]]
+Ref: TypeAlias = IdRef | MemberRef | IndexListRef | IndexDictRef
 
 # operator maps
 _ARITH: dict[str, Any] = {

@@ -13,7 +13,7 @@ Supports resumable crawling, multi-format exporting, text processing pipeline, C
 
 **Documentation**: [Project Documentation](https://github.com/spiritLHLS/novel-downloader/blob/main/docs/index.md)
 
-**Requirements**: Python 3.11+ (development tested on Python 3.13)
+**Requirements**: Python 3.11+ (CI coverage: 3.11 ~ 3.14)
 
 ---
 

@@ -3,9 +3,7 @@ from __future__ import annotations
 from importlib import util
 from pathlib import Path
 
-SCRIPT_PATH = (
-    Path(__file__).parents[2] / "scripts" / "update_legado_sources.py"
-)
+SCRIPT_PATH = Path(__file__).parents[2] / "scripts" / "update_legado_sources.py"
 
 
 def load_update_module():

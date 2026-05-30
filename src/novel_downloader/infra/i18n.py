@@ -20,7 +20,7 @@ def get_translation(lang: str) -> gettext.NullTranslations:
         )
         with mo_path.open("rb") as f:
             return gettext.GNUTranslations(f)
-    except FileNotFoundError:
+    except (FileNotFoundError, ModuleNotFoundError):
         return gettext.NullTranslations()
 
 

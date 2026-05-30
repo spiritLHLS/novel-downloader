@@ -187,9 +187,7 @@ class LegadoCmd(Command):
                 )
             )
         else:
-            ui.info(
-                t("Validation: all {n} source(s) OK.").format(n=ok)
-            )
+            ui.info(t("Validation: all {n} source(s) OK.").format(n=ok))
 
     @classmethod
     def _run_download(cls, args: Namespace) -> None:

@@ -268,7 +268,7 @@ class LegadoParser(BaseParser):
             logger.debug("raw_pages[0] 不含 meta 标记，尝试降级")
             return "", None
 
-        meta_body = meta[len(_META_PREFIX):]
+        meta_body = meta[len(_META_PREFIX) :]
         parts = meta_body.split("|", 1)
         current_url = parts[0].strip() if parts else ""
         source_base = parts[1].strip() if len(parts) > 1 else ""

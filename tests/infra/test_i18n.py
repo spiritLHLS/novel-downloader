@@ -61,3 +61,15 @@ def test_get_translation_valid_mo(monkeypatch):
 
     tr = i18n.get_translation("zh_CN")
     assert isinstance(tr, gettext.GNUTranslations)
+
+
+def test_get_translation_missing_locales_package(monkeypatch):
+    """If locales package is missing -> NullTranslations."""
+
+    def fake_files(_package):
+        raise ModuleNotFoundError("novel_downloader.locales")
+
+    monkeypatch.setattr(i18n, "files", fake_files)
+
+    tr = i18n.get_translation("zh_CN")
+    assert isinstance(tr, gettext.NullTranslations)

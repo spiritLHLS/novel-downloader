@@ -48,8 +48,7 @@ def test_book_source_manager_matches_book_url_pattern() -> None:
 
     assert manager.add_source(source) is True
     assert (
-        manager.get_source_for_url("https://www.qidian.com/book/1043925220/")
-        == source
+        manager.get_source_for_url("https://www.qidian.com/book/1043925220/") == source
     )
     assert manager.get_source_for_url("https://qidian.com/book/1043925220/") == source
     assert manager.get_source_for_url("https://m.qidian.com/book/1043925220/") == source

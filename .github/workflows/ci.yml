@@ -11,8 +11,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
-    name: Python CI
+  lint:
+    name: Lint & Type Checks (3.13)
     runs-on: ubuntu-latest
 
     steps:
@@ -50,3 +50,70 @@ jobs:
       - name: Run tests
         run: |
           pytest -v
+
+  test-matrix:
+    name: Tests (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .[ci]
+
+      - name: Bytecode compile smoke
+        run: |
+          python -m compileall -q src tests
+
+      - name: Runtime import smoke
+        run: |
+          python -c "import novel_downloader; print(novel_downloader.__version__)"
+
+      - name: Run tests
+        run: |
+          pytest -v
+
+  package-smoke:
+    name: Package Build Smoke (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.14"]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+
+      - name: Build wheel
+        run: |
+          python -m pip install --upgrade pip
+          pip install build
+          python -m build
+
+      - name: Install built wheel
+        run: |
+          pip install dist/*.whl
+
+      - name: Entry-point smoke
+        run: |
+          novel-cli --version

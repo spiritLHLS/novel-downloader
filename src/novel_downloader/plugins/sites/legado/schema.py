@@ -23,28 +23,28 @@ logger = logging.getLogger(__name__)
 class SearchRule:
     """书源搜索规则（ruleSearch）"""
 
-    book_list: str = ""    # 书列表选择规则
-    name: str = ""         # 书名
-    author: str = ""       # 作者
-    book_url: str = ""     # 详情页 URL
-    cover_url: str = ""    # 封面图 URL
-    intro: str = ""        # 简介
-    kind: str = ""         # 分类/标签
-    last_chapter: str = "" # 最新章节名
+    book_list: str = ""  # 书列表选择规则
+    name: str = ""  # 书名
+    author: str = ""  # 作者
+    book_url: str = ""  # 详情页 URL
+    cover_url: str = ""  # 封面图 URL
+    intro: str = ""  # 简介
+    kind: str = ""  # 分类/标签
+    last_chapter: str = ""  # 最新章节名
 
 
 @dataclass
 class BookInfoRule:
     """书籍详情规则（ruleBookInfo）"""
 
-    name: str = ""          # 书名
-    author: str = ""        # 作者
-    cover_url: str = ""     # 封面图 URL
-    intro: str = ""         # 简介
-    toc_url: str = ""       # 目录页 URL（为空时表示当前页即目录）
-    update_time: str = ""   # 更新时间
-    kind: str = ""          # 分类/标签
-    word_count: str = ""    # 字数
+    name: str = ""  # 书名
+    author: str = ""  # 作者
+    cover_url: str = ""  # 封面图 URL
+    intro: str = ""  # 简介
+    toc_url: str = ""  # 目录页 URL（为空时表示当前页即目录）
+    update_time: str = ""  # 更新时间
+    kind: str = ""  # 分类/标签
+    word_count: str = ""  # 字数
     last_chapter: str = ""  # 最新章节名
 
 
@@ -52,22 +52,22 @@ class BookInfoRule:
 class TocRule:
     """目录规则（ruleToc）"""
 
-    pre_rule: str = ""      # 预处理 JS（暂不支持）
+    pre_rule: str = ""  # 预处理 JS（暂不支持）
     chapter_list: str = ""  # 章节列表选择规则
     chapter_name: str = ""  # 章节名称
-    chapter_url: str = ""   # 章节 URL
-    is_vip: str = ""        # 是否 VIP（付费章节）
-    update_time: str = ""   # 章节更新时间
+    chapter_url: str = ""  # 章节 URL
+    is_vip: str = ""  # 是否 VIP（付费章节）
+    update_time: str = ""  # 章节更新时间
 
 
 @dataclass
 class ContentRule:
     """正文规则（ruleContent）"""
 
-    content: str = ""          # 正文内容选择规则
-    next_content_url: str = "" # 下一页 URL（分页）
-    replace_regex: str = ""    # 正文替换正则（格式：pattern##replacement）
-    image_style: str = ""      # 图片样式（full/square 等）
+    content: str = ""  # 正文内容选择规则
+    next_content_url: str = ""  # 下一页 URL（分页）
+    replace_regex: str = ""  # 正文替换正则（格式：pattern##replacement）
+    image_style: str = ""  # 图片样式（full/square 等）
 
 
 @dataclass
@@ -78,14 +78,14 @@ class BookSource:
     对应 Legado App 导出的 JSON 格式，支持单个书源对象或书源数组。
     """
 
-    book_source_url: str = ""         # 书源根 URL（域名基准）
-    book_source_name: str = ""        # 书源名称
-    book_source_type: int = 0         # 类型：0=文字, 1=音频, 2=图片
-    enabled: bool = True              # 是否启用
-    book_url_pattern: str = ""       # 书籍 URL 匹配规则（Legado bookUrlPattern）
-    book_source_comment: str = ""     # 书源备注
+    book_source_url: str = ""  # 书源根 URL（域名基准）
+    book_source_name: str = ""  # 书源名称
+    book_source_type: int = 0  # 类型：0=文字, 1=音频, 2=图片
+    enabled: bool = True  # 是否启用
+    book_url_pattern: str = ""  # 书籍 URL 匹配规则（Legado bookUrlPattern）
+    book_source_comment: str = ""  # 书源备注
     header: dict[str, str] = field(default_factory=dict)  # 自定义 HTTP 请求头
-    search_url: str = ""              # 搜索 URL 模板（支持 {{key}} {{page}}）
+    search_url: str = ""  # 搜索 URL 模板（支持 {{key}} {{page}}）
     rule_search: SearchRule = field(default_factory=SearchRule)
     rule_book_info: BookInfoRule = field(default_factory=BookInfoRule)
     rule_toc: TocRule = field(default_factory=TocRule)
@@ -207,6 +207,5 @@ class BookSource:
 
     def __repr__(self) -> str:
         return (
-            f"BookSource(name={self.book_source_name!r},"
-            f" url={self.book_source_url!r})"
+            f"BookSource(name={self.book_source_name!r}, url={self.book_source_url!r})"
         )

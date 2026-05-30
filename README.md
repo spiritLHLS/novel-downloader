@@ -13,7 +13,7 @@
 
 **文档**: [项目文档](https://github.com/spiritLHLS/novel-downloader/blob/main/docs/index.md)
 
-**运行要求**: Python 3.11+ (开发环境: Python 3.13)
+**运行要求**: Python 3.11+ (CI 覆盖: 3.11 ~ 3.14)
 
 ---
 

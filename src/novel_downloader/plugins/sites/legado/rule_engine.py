@@ -110,8 +110,8 @@ def eval_rule(
         processed = []
         for t in texts:
             for pattern, replacement in transforms:
-                    with contextlib.suppress(re.error):
-                        t = re.sub(pattern, replacement, t, flags=re.DOTALL)
+                with contextlib.suppress(re.error):
+                    t = re.sub(pattern, replacement, t, flags=re.DOTALL)
             t = t.strip()
             if t:
                 processed.append(t)

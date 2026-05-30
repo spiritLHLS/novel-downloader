@@ -88,6 +88,7 @@ class ProcessStatus(Enum):
     SKIPPED = "skipped"
     FAILED = "failed"
 
+
 # ---------------------------------------------------------------------------
 # 解析器
 # ---------------------------------------------------------------------------
@@ -181,9 +182,7 @@ def process_source(cfg: dict[str, Any]) -> ProcessStatus:
     min_size: int = cfg.get("min_size", 1)
     parser_name: str = cfg.get("parser", "default_parser")
     parser = (
-        default_parser
-        if parser_name == "default_parser"
-        else PARSERS.get(parser_name)
+        default_parser if parser_name == "default_parser" else PARSERS.get(parser_name)
     )
 
     output_path = OUTPUT_DIR / output_name

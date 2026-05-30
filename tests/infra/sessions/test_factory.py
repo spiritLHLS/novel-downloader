@@ -1,5 +1,6 @@
 import pytest
 
+import novel_downloader.infra.sessions as sessions_pkg
 from novel_downloader.infra.sessions import create_session
 from novel_downloader.infra.sessions._aiohttp import AiohttpSession
 from novel_downloader.infra.sessions._curl_cffi import CurlCffiSession
@@ -53,3 +54,37 @@ def test_create_session_invalid_backend(cfg):
     msg = str(excinfo.value)
     assert "Unsupported backend" in msg
     assert "not-a-backend" in msg
+
+
+def test_create_session_fallback_when_dependency_missing(cfg, monkeypatch):
+    original_import_module = sessions_pkg.import_module
+
+    def fake_import_module(name):
+        if name == "novel_downloader.infra.sessions._httpx":
+            raise ModuleNotFoundError("No module named 'httpx'", name="httpx")
+        return original_import_module(name)
+
+    monkeypatch.setattr(sessions_pkg, "import_module", fake_import_module)
+
+    s = create_session("httpx", cfg, cookies={"x": "1"})
+    assert isinstance(s, AiohttpSession)
+    assert s._cookies == {"x": "1"}
+
+
+def test_create_session_raise_if_all_backends_unavailable(cfg, monkeypatch):
+    missing_by_module = {
+        "novel_downloader.infra.sessions._aiohttp": "aiohttp",
+        "novel_downloader.infra.sessions._httpx": "httpx",
+        "novel_downloader.infra.sessions._curl_cffi": "curl_cffi",
+    }
+
+    def fake_import_module(name):
+        dep = missing_by_module[name]
+        raise ModuleNotFoundError(f"No module named '{dep}'", name=dep)
+
+    monkeypatch.setattr(sessions_pkg, "import_module", fake_import_module)
+
+    with pytest.raises(RuntimeError) as excinfo:
+        create_session("aiohttp", cfg)
+
+    assert "No available HTTP backend" in str(excinfo.value)
