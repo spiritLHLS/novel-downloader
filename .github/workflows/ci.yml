@@ -340,7 +340,7 @@ jobs:
     environment:
       name: pypi
     env:
-      PYPI_API_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+      PYPI_API_TOKEN: ${{ secrets.PYPI_API_TOKEN || secrets.PYPI_TOKEN }}
     concurrency:
       group: pypi-publish
       cancel-in-progress: false
@@ -435,12 +435,13 @@ jobs:
           packages-dir: dist/
           skip-existing: true
 
-      - name: Publish to PyPI (Trusted Publisher)
+      - name: Fail when PyPI token is missing
         if: env.PYPI_API_TOKEN == ''
-        uses: pypa/gh-action-pypi-publish@v1.14.0
-        with:
-          packages-dir: dist/
-          skip-existing: true
+        shell: bash
+        run: |
+          echo "Missing PyPI token. Set repository or environment secret PYPI_API_TOKEN (or PYPI_TOKEN)." >&2
+          echo "Trusted Publisher fallback is disabled to avoid invalid-publisher failures." >&2
+          exit 1
 
       - name: Create or update GitHub Release
         uses: softprops/action-gh-release@v2
