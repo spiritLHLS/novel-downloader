@@ -6,11 +6,13 @@ novel_downloader.apps.web.services.task_manager
 """
 
 import asyncio
+import os
 from collections import defaultdict, deque
-from collections.abc import Callable, Coroutine
+from collections.abc import Callable
 from typing import Any
 
 from novel_downloader.infra.config import ConfigAdapter, load_config
+from novel_downloader.libs.time_utils import async_jitter_sleep
 from novel_downloader.plugins import ClientProtocol, registrar
 from novel_downloader.schemas import BookConfig
 
@@ -18,6 +20,23 @@ from ..models import DownloadTask, Status
 from ..ui_adapters import WebDownloadUI, WebExportUI, WebLoginUI, WebProcessUI
 
 MAX_COMPLETED_TASKS = 100
+_STAGE_RETRY_TIMES = 2
+_STAGE_BACKOFF_BASE = 1.0
+
+
+def _read_env_limit(name: str, default: int) -> int:
+    raw = os.getenv(name, "").strip()
+    if not raw:
+        return default
+    try:
+        value = int(raw)
+        return max(1, value)
+    except ValueError:
+        return default
+
+
+def _is_retryable_stage_error(error: Exception) -> bool:
+    return isinstance(error, (TimeoutError, ConnectionError, OSError))
 
 
 class TaskManager:
@@ -27,7 +46,6 @@ class TaskManager:
       * Tasks from the same site run sequentially.
       * Tasks from different sites can run in parallel.
       * Workers automatically exit when their site's queue becomes empty.
-      * A dedicated export worker runs synchronous export tasks sequentially.
     """
 
     def __init__(self) -> None:
@@ -37,13 +55,14 @@ class TaskManager:
 
         self._worker_tasks: dict[str, asyncio.Task[None]] = {}
 
-        self._process_waiting: asyncio.Queue[DownloadTask] = asyncio.Queue()
-        self._export_waiting: asyncio.Queue[DownloadTask] = asyncio.Queue()
-
-        self._process_worker_task: asyncio.Task[None] | None = None
-        self._export_worker_task: asyncio.Task[None] | None = None
-
         self._clients: dict[str, ClientProtocol] = {}
+        self._closed = False
+        self._process_sem = asyncio.Semaphore(
+            _read_env_limit("NOVEL_WEB_PROCESS_LIMIT", 2)
+        )
+        self._export_sem = asyncio.Semaphore(
+            _read_env_limit("NOVEL_WEB_EXPORT_LIMIT", 2)
+        )
 
         self._lock = asyncio.Lock()
         self._adapter = ConfigAdapter(load_config())
@@ -53,6 +72,18 @@ class TaskManager:
         """
         Add a new task and ensure a worker for its site is running.
         """
+        title = title.strip()
+        site = site.strip()
+        book_id = book_id.strip()
+        if not title:
+            raise ValueError("title must not be empty")
+        if not site:
+            raise ValueError("site must not be empty")
+        if not book_id:
+            raise ValueError("book_id must not be empty")
+        if self._closed:
+            raise RuntimeError("task manager is closed")
+
         task = DownloadTask(title=title, site=site, book_id=book_id)
         async with self._lock:
             self.pending[site].append(task)
@@ -78,6 +109,8 @@ class TaskManager:
             # cancel running
             for running_task in self.running.values():
                 if running_task.task_id == task_id:
+                    if running_task.status not in {Status.QUEUED, Status.RUNNING}:
+                        return False
                     if running_task.asyncio_task:
                         running_task.asyncio_task.cancel()
                     running_task.status = Status.CANCELLED
@@ -94,13 +127,46 @@ class TaskManager:
             "completed": list(self.completed),
         }
 
+    def health_snapshot(self) -> dict[str, Any]:
+        workers_alive = sum(1 for t in self._worker_tasks.values() if not t.done())
+        return {
+            "status": "ok",
+            "closed": self._closed,
+            "workers_alive": workers_alive,
+            "pending": sum(len(q) for q in self.pending.values()),
+            "running": len(self.running),
+            "completed": len(self.completed),
+            "clients": len(self._clients),
+        }
+
+    def api_snapshot(self) -> dict[str, list[dict[str, Any]]]:
+        state = self.snapshot()
+
+        def to_payload(task: DownloadTask) -> dict[str, Any]:
+            return {
+                "task_id": task.task_id,
+                "title": task.title,
+                "site": task.site,
+                "book_id": task.book_id,
+                "status": str(task.status),
+                "chapters_total": task.chapters_total,
+                "chapters_done": task.chapters_done,
+                "error": task.error,
+                "exported_paths": {
+                    fmt: path.name for fmt, path in task.exported_paths.items()
+                },
+            }
+
+        return {
+            "running": [to_payload(task) for task in state["running"]],
+            "pending": [to_payload(task) for task in state["pending"]],
+            "completed": [to_payload(task) for task in state["completed"]],
+        }
+
     async def close(self) -> None:
         """Cancel or gracefully finish all workers before shutdown."""
+        self._closed = True
         all_tasks = [*self._worker_tasks.values()]
-        if self._export_worker_task:
-            all_tasks.append(self._export_worker_task)
-        if self._process_worker_task:
-            all_tasks.append(self._process_worker_task)
 
         for worker_task in all_tasks:
             worker_task.cancel()
@@ -113,7 +179,6 @@ class TaskManager:
                 print(f"Worker error during shutdown: {result!r}")
 
         self._worker_tasks.clear()
-        self._export_worker_task = self._process_worker_task = None
 
         client_results = await asyncio.gather(
             *(client.close() for client in self._clients.values()),
@@ -136,20 +201,6 @@ class TaskManager:
             )
 
         return self._clients[site]
-
-    def _ensure_worker(
-        self, name: str, worker_fn: Callable[[], Coroutine[Any, Any, None]]
-    ) -> None:
-        """Ensure a background worker is running."""
-        worker_task = getattr(self, name)
-        if not worker_task or worker_task.done():
-            setattr(self, name, asyncio.create_task(worker_fn()))
-
-    def _queue_for_export(self, task: DownloadTask) -> None:
-        """Enqueue a task for export and start the export worker if needed."""
-        task.status = Status.EXPORTING
-        self._export_waiting.put_nowait(task)
-        self._ensure_worker("_export_worker_task", self._export_worker)
 
     async def _site_worker(self, site: str) -> None:
         """
@@ -178,7 +229,7 @@ class TaskManager:
                     self.running.pop(site, None)
 
     async def _run_task(self, task: DownloadTask) -> None:
-        """Run a single download task and dispatch to processing or export."""
+        """Run a single task end-to-end: download, optional process, then export."""
         task.status = Status.RUNNING
         adapter = self._adapter
         client = self._get_client(task.site)
@@ -200,69 +251,78 @@ class TaskManager:
 
         task.asyncio_task = asyncio.create_task(download_books())
         await task.asyncio_task
+        task.asyncio_task = None
 
-        if adapter.get_processor_configs(task.site):
+        if task.status in {Status.CANCELLED, Status.FAILED}:
+            return
+
+        processors = adapter.get_processor_configs(task.site)
+        if processors:
             task.status = Status.PROCESSING
-            await self._process_waiting.put(task)
-            self._ensure_worker("_process_worker_task", self._process_worker)
-        else:
-            self._queue_for_export(task)
+            ok = await self._run_stage_with_retry(
+                task=task,
+                stage="processing",
+                sem=self._process_sem,
+                runner=client.process_book,
+                book=BookConfig(book_id=task.book_id),
+                processors=processors,
+                ui=WebProcessUI(task),
+            )
+            if not ok:
+                return
 
-    async def _process_worker(self) -> None:
-        """Worker to run synchronous processing tasks sequentially."""
-        while True:
-            current_task = await self._process_waiting.get()
-            if current_task.status == Status.CANCELLED:
-                self._process_waiting.task_done()
-                continue
+        if task.status in {Status.CANCELLED, Status.FAILED}:
+            return
+
+        task.status = Status.EXPORTING
+        ok = await self._run_stage_with_retry(
+            task=task,
+            stage="export",
+            sem=self._export_sem,
+            runner=client.export_book,
+            book=BookConfig(book_id=task.book_id),
+            cfg=adapter.get_exporter_config(task.site),
+            ui=WebExportUI(task),
+        )
+        if not ok:
+            return
+
+        if task.status not in {Status.CANCELLED, Status.FAILED}:
+            task.status = Status.COMPLETED
+
+    async def _run_stage_with_retry(
+        self,
+        *,
+        task: DownloadTask,
+        stage: str,
+        sem: asyncio.Semaphore,
+        runner: Callable[..., Any],
+        **kwargs: Any,
+    ) -> bool:
+        backoff = _STAGE_BACKOFF_BASE
+        last_error: Exception | None = None
+
+        for attempt in range(_STAGE_RETRY_TIMES + 1):
+            if task.status == Status.CANCELLED:
+                return False
             try:
-                client = self._get_client(current_task.site)
-                processors = self._adapter.get_processor_configs(current_task.site)
-                if not processors:
-                    self._queue_for_export(current_task)
-                    continue
-
-                await asyncio.to_thread(
-                    client.process_book,
-                    BookConfig(book_id=current_task.book_id),
-                    processors=processors,
-                    ui=WebProcessUI(current_task),
-                )
-                self._queue_for_export(current_task)
-
-            except asyncio.CancelledError:
-                current_task.status = Status.CANCELLED
-                break
+                async with sem:
+                    await asyncio.to_thread(runner, **kwargs)
+                return True
             except Exception as e:
-                current_task.status = Status.FAILED
-                current_task.error = str(e)
-            finally:
-                self._process_waiting.task_done()
-
-    async def _export_worker(self) -> None:
-        """Dedicated worker for synchronous export tasks."""
-        while True:
-            current_task = await self._export_waiting.get()
-            if current_task.status == Status.CANCELLED:
-                self._export_waiting.task_done()
-                continue
-            try:
-                client = self._get_client(current_task.site)
-                await asyncio.to_thread(
-                    client.export_book,
-                    BookConfig(book_id=current_task.book_id),
-                    cfg=self._adapter.get_exporter_config(current_task.site),
-                    ui=WebExportUI(current_task),
+                last_error = e
+                if attempt >= _STAGE_RETRY_TIMES or not _is_retryable_stage_error(e):
+                    break
+                await async_jitter_sleep(
+                    base=backoff,
+                    mul_spread=1.2,
+                    max_sleep=backoff + 2,
                 )
-                current_task.status = Status.COMPLETED
-            except asyncio.CancelledError:
-                current_task.status = Status.CANCELLED
-                break
-            except Exception as e:
-                current_task.status = Status.FAILED
-                current_task.error = str(e)
-            finally:
-                self._export_waiting.task_done()
+                backoff *= 2
+
+        task.status = Status.FAILED
+        task.error = f"{stage} failed: {last_error}"
+        return False
 
 
 manager = TaskManager()

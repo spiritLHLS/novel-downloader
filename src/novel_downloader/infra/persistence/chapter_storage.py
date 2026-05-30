@@ -29,6 +29,8 @@ CREATE TABLE IF NOT EXISTS chapters (
 );
 """
 
+_SQLITE_MAX_VARS = 900
+
 
 class ChapterStorage:
     """
@@ -54,11 +56,12 @@ class ChapterStorage:
         if self._conn:
             return
 
+        self._db_path.parent.mkdir(parents=True, exist_ok=True)
         self._conn = sqlite3.connect(self._db_path)
         self._conn.row_factory = sqlite3.Row
-        # self._conn.execute("PRAGMA foreign_keys = ON;")
-        # self._conn.execute("PRAGMA journal_mode = WAL;")
-        # self._conn.execute("PRAGMA synchronous = NORMAL;")
+        self._conn.execute("PRAGMA journal_mode = WAL;")
+        self._conn.execute("PRAGMA synchronous = NORMAL;")
+        self._conn.execute("PRAGMA busy_timeout = 5000;")
         self._conn.executescript(_CREATE_TABLE_SQL)
         self._conn.commit()
         self._load_existing_keys()
@@ -138,13 +141,14 @@ class ChapterStorage:
             return
 
         records = []
+        id_flags: dict[str, bool] = {}
         for chapter in data:
             chap_id = chapter["id"]
             title = chapter["title"]
             content = chapter["content"]
             extra_json = json.dumps(chapter["extra"], ensure_ascii=False)
             records.append((chap_id, title, content, int(need_refetch), extra_json))
-            self._refetch_flags[chap_id] = need_refetch
+            id_flags[chap_id] = need_refetch
 
         self.conn.executemany(
             """
@@ -159,6 +163,7 @@ class ChapterStorage:
             records,
         )
         self.conn.commit()
+        self._refetch_flags.update(id_flags)
 
     def get_chapter(self, chap_id: str) -> ChapterDict | None:
         """
@@ -192,22 +197,24 @@ class ChapterStorage:
         if not chap_ids:
             return {}
 
-        placeholders = ",".join("?" for _ in chap_ids)
-        query = f"""
-            SELECT id, title, content, extra
-              FROM chapters
-             WHERE id IN ({placeholders})
-        """
-        rows = self.conn.execute(query, tuple(chap_ids)).fetchall()
-
         result: dict[str, ChapterDict | None] = dict.fromkeys(chap_ids)
-        for row in rows:
-            result[row["id"]] = ChapterDict(
-                id=row["id"],
-                title=row["title"],
-                content=row["content"],
-                extra=self._load_dict(row["extra"]),
-            )
+
+        for chunk in self._iter_chunks(chap_ids, _SQLITE_MAX_VARS):
+            placeholders = ",".join("?" for _ in chunk)
+            query = f"""
+                SELECT id, title, content, extra
+                  FROM chapters
+                 WHERE id IN ({placeholders})
+            """
+            rows = self.conn.execute(query, tuple(chunk)).fetchall()
+
+            for row in rows:
+                result[row["id"]] = ChapterDict(
+                    id=row["id"],
+                    title=row["title"],
+                    content=row["content"],
+                    extra=self._load_dict(row["extra"]),
+                )
         return result
 
     def delete_chapter(self, chap_id: str) -> bool:
@@ -237,17 +244,20 @@ class ChapterStorage:
         if not chap_ids:
             return 0
 
-        unique_ids = set(chap_ids)
+        unique_ids = list(set(chap_ids))
+        deleted = 0
 
-        placeholders = ",".join("?" for _ in unique_ids)
-        query = f"DELETE FROM chapters WHERE id IN ({placeholders})"
-        cur = self.conn.execute(query, tuple(unique_ids))
+        for chunk in self._iter_chunks(unique_ids, _SQLITE_MAX_VARS):
+            placeholders = ",".join("?" for _ in chunk)
+            query = f"DELETE FROM chapters WHERE id IN ({placeholders})"
+            cur = self.conn.execute(query, tuple(chunk))
+            deleted += cur.rowcount or 0
         self.conn.commit()
 
         for cid in unique_ids:
             self._refetch_flags.pop(cid, None)
 
-        return cur.rowcount or 0
+        return deleted
 
     def vacuum(self) -> None:
         """
@@ -300,6 +310,10 @@ class ChapterStorage:
             return json.loads(data) or {}
         except Exception:
             return {}
+
+    @staticmethod
+    def _iter_chunks(values: list[str], size: int) -> list[list[str]]:
+        return [values[i : i + size] for i in range(0, len(values), size)]
 
     def __enter__(self) -> Self:
         """

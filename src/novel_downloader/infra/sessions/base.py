@@ -12,7 +12,7 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any, Self, TypedDict, Unpack
 
-from novel_downloader.infra.http_defaults import DEFAULT_USER_HEADERS
+from novel_downloader.infra.http_defaults import build_stealth_headers
 from novel_downloader.schemas import FetcherConfig
 
 from .response import BaseResponse
@@ -61,11 +61,12 @@ class BaseSession(ABC):
         self._cookies = cookies or {}
         self._session: Any = None
 
-        self._headers = (
-            config.headers.copy()
-            if config.headers is not None
-            else DEFAULT_USER_HEADERS.copy()
-        )
+        if config.headers is not None:
+            self._headers = config.headers.copy()
+        else:
+            # Use a randomized UA by default to reduce static fingerprinting.
+            self._headers = build_stealth_headers(randomize_user_agent=True)
+
         if config.user_agent:
             self._headers["User-Agent"] = config.user_agent
 

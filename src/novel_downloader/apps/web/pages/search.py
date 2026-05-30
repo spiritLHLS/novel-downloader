@@ -174,8 +174,19 @@ def _render_result_row(r: SearchResult) -> None:
 
         async def _add_task() -> None:
             title = r["title"]
+            try:
+                await manager.add_task(
+                    title=title,
+                    site=r["site"],
+                    book_id=r["book_id"],
+                )
+            except (ValueError, RuntimeError) as e:
+                ui.notify(str(e), type="warning")
+                return
+            except Exception:
+                ui.notify(t("Unable to add task at the moment"), type="negative")
+                return
             ui.notify(t("Task added: {title}").format(title=title))
-            await manager.add_task(title=title, site=r["site"], book_id=r["book_id"])
 
         ui.button(t("Download"), color="primary", on_click=_add_task).props(
             "unelevated"

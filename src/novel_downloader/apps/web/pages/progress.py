@@ -126,6 +126,13 @@ def _task_card(tsk: DownloadTask, *, active: bool) -> None:
                     )
 
                 ui.button(t("Cancel"), on_click=cancel_this).props("outline")
+            elif active and tsk.status in ("processing", "exporting"):
+                ui.button(
+                    t("Cancel"),
+                    on_click=lambda: ui.notify(
+                        t("This stage cannot be interrupted safely")
+                    ),
+                ).props("disable outline")
             else:
                 ui.button(
                     t("Cancel"),

@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+import novel_downloader.infra.persistence.chapter_storage as chapter_storage_module
 from novel_downloader.infra.persistence.chapter_storage import ChapterStorage
 from novel_downloader.schemas import ChapterDict
 
@@ -88,9 +89,37 @@ def test_upsert_many_and_get_chapters(tmp_storage: ChapterStorage):
     assert tmp_storage.need_refetch("chap0") is False
 
 
+def test_get_chapters_chunks_large_input(
+    tmp_storage: ChapterStorage, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setattr(chapter_storage_module, "_SQLITE_MAX_VARS", 2)
+    chapters = [_make_chapter(i) for i in range(6)]
+    tmp_storage.upsert_chapters(chapters)
+
+    ids = [f"chap{i}" for i in range(8)]
+    got = tmp_storage.get_chapters(ids)
+    assert set(got.keys()) == set(ids)
+    for i in range(6):
+        assert got[f"chap{i}"] is not None
+    assert got["chap6"] is None
+    assert got["chap7"] is None
+
+
 def test_upsert_chapters_empty_list(tmp_storage: ChapterStorage):
     """Calling upsert_chapters([]) should be a no-op."""
     tmp_storage.upsert_chapters([])
+    assert tmp_storage.existing_ids() == set()
+
+
+def test_delete_chapters_chunks_large_input(
+    tmp_storage: ChapterStorage, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setattr(chapter_storage_module, "_SQLITE_MAX_VARS", 2)
+    chapters = [_make_chapter(i) for i in range(6)]
+    tmp_storage.upsert_chapters(chapters)
+
+    deleted = tmp_storage.delete_chapters([f"chap{i}" for i in range(8)])
+    assert deleted == 6
     assert tmp_storage.existing_ids() == set()
 
 

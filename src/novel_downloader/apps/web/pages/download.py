@@ -105,7 +105,9 @@ def page_download() -> None:
                 return None, None
             site_key = info["site_key"]
             bid = info.get("book_id")
-            if not book_id:
+            if not bid:
+                return None, None
+            if site_key not in DOWNLOAD_SUPPORT_SITES:
                 return None, None
             return site_key, bid
 
@@ -157,8 +159,15 @@ def page_download() -> None:
                 return
             site_display = DOWNLOAD_SUPPORT_SITES.get(site_key, site_key)
             title = f"{site_display} (id = {bid})"
+            try:
+                await manager.add_task(title=title, site=site_key, book_id=bid)
+            except (ValueError, RuntimeError) as e:
+                ui.notify(str(e), type="warning")
+                return
+            except Exception:
+                ui.notify(t("Unable to add task at the moment"), type="negative")
+                return
             ui.notify(t("Task added: {title}").format(title=title))
-            await manager.add_task(title=title, site=site_key, book_id=bid)
 
         async def _add_task_from_id() -> None:
             bid = (book_id.value or "").strip()
@@ -166,10 +175,20 @@ def page_download() -> None:
                 ui.notify(t("Please enter a Book ID"), type="warning")
                 return
             site_key = str(site.value)
+            if site_key not in DOWNLOAD_SUPPORT_SITES:
+                ui.notify(t("Please select a supported site"), type="warning")
+                return
             site_display = DOWNLOAD_SUPPORT_SITES.get(site_key, site_key)
             title = f"{site_display} (id = {bid})"
+            try:
+                await manager.add_task(title=title, site=site_key, book_id=bid)
+            except (ValueError, RuntimeError) as e:
+                ui.notify(str(e), type="warning")
+                return
+            except Exception:
+                ui.notify(t("Unable to add task at the moment"), type="negative")
+                return
             ui.notify(t("Task added: {title}").format(title=title))
-            await manager.add_task(title=title, site=site_key, book_id=bid)
 
         async def add_task() -> None:
             # disable button to prevent duplicate submissions
@@ -194,8 +213,8 @@ def page_download() -> None:
                 add_btn.props(remove="loading")
 
         # enter key submits in both modes
-        url_input.on("keydown.enter", lambda _: add_task())
-        book_id.on("keydown.enter", lambda _: add_task())
+        url_input.on("keydown.enter", lambda _: ui.timer(0, add_task, once=True))
+        book_id.on("keydown.enter", lambda _: ui.timer(0, add_task, once=True))
 
         add_btn.on("click", add_task)
         clear_btn.on("click", lambda: _clear_all())
