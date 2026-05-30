@@ -1,23 +1,72 @@
 name: Publish Python Package
 
 on:
-  workflow_run:
-    workflows: ["Tag After Bump"]
-    types:
-      - completed
+  push:
+    tags:
+      - "v*"
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to publish, e.g. v3.1.2"
+        required: true
+        type: string
 
 jobs:
   publish:
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
 
     permissions:
-      contents: read
+      contents: write
       id-token: write
 
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Resolve release tag and version
+        id: meta
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "${GITHUB_EVENT_NAME}" == "push" ]]; then
+            TAG="${GITHUB_REF_NAME}"
+          else
+            TAG="${{ github.event.inputs.tag }}"
+          fi
+
+          if [[ ! "${TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z]+)*$ ]]; then
+            echo "Invalid tag: ${TAG}. Expected format like v3.1.2" >&2
+            exit 1
+          fi
+
+          VERSION="${TAG#v}"
+          echo "tag=${TAG}" >> "${GITHUB_OUTPUT}"
+          echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
+
+      - name: Verify package version matches tag
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          FILE_VERSION=$(python - <<'PY'
+          import pathlib
+          import re
+
+          text = pathlib.Path("src/novel_downloader/__init__.py").read_text(encoding="utf-8")
+          m = re.search(r'__version__\s*=\s*"([^"]+)"', text)
+          if not m:
+              raise SystemExit("Unable to read __version__ from src/novel_downloader/__init__.py")
+          print(m.group(1))
+          PY
+          )
+
+          if [[ "${FILE_VERSION}" != "${{ steps.meta.outputs.version }}" ]]; then
+            echo "Tag version (${{ steps.meta.outputs.version }}) does not match src version (${FILE_VERSION})" >&2
+            exit 1
+          fi
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -44,3 +93,14 @@ jobs:
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@v1.14.0
+        with:
+          packages-dir: dist/
+          skip-existing: true
+
+      - name: Create or update GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag }}
+          name: ${{ steps.meta.outputs.tag }}
+          generate_release_notes: true
+          files: dist/*

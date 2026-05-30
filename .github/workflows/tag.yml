@@ -6,7 +6,7 @@ on:
       - main
     paths:
       - CHANGELOG.md
-      - novel_downloader/__init__.py
+      - src/novel_downloader/__init__.py
 
 permissions:
   contents: write
@@ -18,11 +18,28 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          fetch-tags: true
 
-      - name: Extract version from commit message
+      - name: Extract version from source file
         id: extract
         run: |
-          VERSION=$(echo "${{ github.event.head_commit.message }}" | grep -oP 'bump version to \K[0-9]+\.[0-9]+\.[0-9]+')
+          VERSION=$(python - <<'PY'
+          import pathlib
+          import re
+
+          text = pathlib.Path("src/novel_downloader/__init__.py").read_text(encoding="utf-8")
+          m = re.search(r'__version__\s*=\s*"([^"]+)"', text)
+          if not m:
+              raise SystemExit("Unable to parse __version__ from src/novel_downloader/__init__.py")
+          print(m.group(1))
+          PY
+          )
+          if [[ -z "$VERSION" ]]; then
+            echo "Version extraction failed" >&2
+            exit 1
+          fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Create and push tag
