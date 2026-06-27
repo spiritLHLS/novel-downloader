@@ -67,7 +67,10 @@ def detect_interference_boxes(
     if h < _BOX_H or w < _BOX_W:
         return []
 
-    is_white = (img >= white_threshold).all(axis=-1)
+    is_white: NDArray[np.bool_] = np.asarray(
+        (img >= white_threshold).all(axis=-1),
+        dtype=np.bool_,
+    )
     out_h = h - _BOX_H + 1
     out_w = w - _BOX_W + 1
     matches = np.ones((out_h, out_w), dtype=bool)

@@ -15,7 +15,6 @@ from novel_downloader.plugins.utils.faloo import (
 )
 from novel_downloader.schemas import ParserConfig
 
-
 ASSET_DIR = Path(__file__).parents[2] / "docs" / "assets" / "images" / "faloo"
 
 

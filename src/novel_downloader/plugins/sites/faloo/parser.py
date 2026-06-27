@@ -310,11 +310,7 @@ class FalooParser(BaseParser):
         if len(non_empty) / len(preds) < 0.4:
             return False
 
-        scores = [
-            float(score)
-            for _, score in non_empty
-            if isinstance(score, Real)
-        ]
+        scores = [float(score) for _, score in non_empty if isinstance(score, Real)]
         return not scores or sum(scores) / len(scores) >= 0.45
 
     def _extract_chapters_in_box(

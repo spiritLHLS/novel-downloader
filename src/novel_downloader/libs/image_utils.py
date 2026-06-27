@@ -105,7 +105,7 @@ def split_by_height(
     :param per_chunk_top_ignore: Number of pixels to skip from the top of each chunk
     :return: List of numpy arrays, each a sub-image of the original
     """
-    w = img.shape[1]
+    h = img.shape[0]
     chunks = []
     effective_height = h - top_offset - bottom_offset
 
@@ -192,7 +192,7 @@ def trim_blank_columns(
     :param padding: White columns to keep around the detected content.
     :return: Cropped image. If no content exists, returns the original image.
     """
-    h, w, _ = img.shape
+    w = img.shape[1]
     nonwhite_cols = ~((img >= white_threshold).all(axis=2).all(axis=0))
     if not nonwhite_cols.any():
         return img
