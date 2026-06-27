@@ -16,6 +16,7 @@ from novel_downloader.libs.image_utils import (
     load_image_array_path,
     split_by_height,
     split_by_white_lines,
+    trim_blank_columns,
 )
 
 
@@ -118,6 +119,31 @@ def test_split_by_white_lines():
     for blk in blocks:
         # padded = top(2) + middle block(5) + bottom(2) = 9
         assert blk.shape[0] == 9
+
+
+def test_split_by_white_lines_allows_near_white_noise():
+    block = np.zeros((5, 20, 3), dtype=np.uint8)
+    near_white = np.full((1, 20, 3), 252, dtype=np.uint8)
+    near_white[:, 3] = [200, 200, 200]
+    img = np.vstack([block, near_white, block])
+
+    blocks = split_by_white_lines(
+        img,
+        padding=1,
+        white_threshold=250,
+        max_nonwhite=1,
+    )
+
+    assert len(blocks) == 2
+
+
+def test_trim_blank_columns():
+    img = np.full((10, 20, 3), 255, dtype=np.uint8)
+    img[:, 8:12] = 0
+
+    trimmed = trim_blank_columns(img, padding=1)
+
+    assert trimmed.shape == (10, 6, 3)
 
 
 def test_crop_chars_region():

@@ -24,7 +24,7 @@ Supports resumable crawling, multi-format exporting, text processing pipeline, C
 * Pluggable HTTP backends: `aiohttp`, `httpx`, `curl_cffi`
 * Export to TXT, EPUB, and HTML
 * Text processing pipeline: ad removal, zh conversion, translation, etc.
-* Optional support for image chapters and obfuscated content
+* Optional OCR support for image chapters and obfuscated content
 * Plugin system for site parsers, exporters, and processing pipelines
 * CLI and optional Web GUI
 
@@ -49,6 +49,8 @@ pip install novel-downloader-spiritlhl[web-ui]
 ```
 
 For all optional features (Web UI, OCR, image-to-text, extra backends, exporters, etc.), refer to the [Full Installation Guide](https://github.com/spiritLHLS/novel-downloader/blob/main/docs/guide/installation.md).
+
+Image-to-text requires `image-utils`, `paddlepaddle`, and `paddleocr`, plus `enable_ocr = true` under `[general.parser]` in `settings.toml`. For Faloo-style VIP image chapters, the parser now applies site-specific image cleanup before OCR; if OCR returns no usable text or fails, HTML/EPUB exports keep the original image as a fallback.
 
 ---
 

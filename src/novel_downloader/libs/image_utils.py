@@ -105,7 +105,7 @@ def split_by_height(
     :param per_chunk_top_ignore: Number of pixels to skip from the top of each chunk
     :return: List of numpy arrays, each a sub-image of the original
     """
-    h, w, _ = img.shape
+    w = img.shape[1]
     chunks = []
     effective_height = h - top_offset - bottom_offset
 
@@ -119,22 +119,30 @@ def split_by_height(
 
 
 def split_by_white_lines(
-    img_arr: NDArray[np.uint8], padding: int = 4
+    img_arr: NDArray[np.uint8],
+    padding: int = 4,
+    white_threshold: int = 255,
+    max_nonwhite: int = 0,
+    min_height: int = 1,
 ) -> list[NDArray[np.uint8]]:
     """
-    Split an RGB image (numpy array) into multiple blocks using full-white
-    horizontal separator lines, then add fixed white padding to the top and
-    bottom of each block.
+    Split an RGB image into blocks using blank horizontal separator lines.
+
+    By default the split is strict: a separator row must be pure white. For
+    lightly compressed or watermarked images, callers may lower
+    ``white_threshold`` and allow a small ``max_nonwhite`` pixel count.
 
     :param img_arr: Input RGB image array with shape (H, W, 3).
     :param padding: Number of white pixels to pad on the top and bottom.
+    :param white_threshold: Minimum channel value considered white.
+    :param max_nonwhite: Maximum non-white pixels allowed in a separator row.
+    :param min_height: Minimum content block height to keep.
     :return: List of sliced blocks as numpy arrays.
     """
     h, w, _ = img_arr.shape
 
-    # vectorized detection: row is white if min(pixel) == 255
-    pix_and = np.bitwise_and.reduce(img_arr, axis=2)
-    white_mask = pix_and.min(axis=1) == 255
+    near_white = (img_arr >= white_threshold).all(axis=2)
+    white_mask = (~near_white).sum(axis=1) <= max_nonwhite
 
     # Invert: 1 for content (non-white)
     content_mask = ~white_mask
@@ -162,11 +170,37 @@ def split_by_white_lines(
 
     blocks = []
     for start, end in zip(starts, ends, strict=False):
+        if end - start < min_height:
+            continue
         block = img_arr[start:end]
         padded = np.concatenate((pad_block, block, pad_block), axis=0)
         blocks.append(padded)
 
     return blocks
+
+
+def trim_blank_columns(
+    img: NDArray[np.uint8],
+    white_threshold: int = 250,
+    padding: int = 2,
+) -> NDArray[np.uint8]:
+    """
+    Trim fully blank columns from the left and right of an RGB image.
+
+    :param img: Input image as (H, W, 3) numpy array.
+    :param white_threshold: Minimum channel value considered white.
+    :param padding: White columns to keep around the detected content.
+    :return: Cropped image. If no content exists, returns the original image.
+    """
+    h, w, _ = img.shape
+    nonwhite_cols = ~((img >= white_threshold).all(axis=2).all(axis=0))
+    if not nonwhite_cols.any():
+        return img
+
+    cols = np.flatnonzero(nonwhite_cols)
+    start = max(0, int(cols[0]) - padding)
+    end = min(w, int(cols[-1]) + padding + 1)
+    return img[:, start:end, :]
 
 
 def crop_chars_region(

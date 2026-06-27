@@ -24,7 +24,7 @@
 - **可插拔 HTTP 后端:** `aiohttp` / `httpx` / `curl_cffi`
 - **多格式导出:** TXT / EPUB / HTML
 - **文本处理流水线:** 去广告、繁简转换、自动翻译等
-- **图片章节与混淆章节支持 (可选)**
+- **图片章节与混淆章节支持 (可选 OCR)**
 - **插件系统:** 可扩展站点解析器、导出器、Pipeline 等
 - **CLI 与可选 Web GUI**
 
@@ -49,6 +49,8 @@ pip install novel-downloader-spiritlhl[web-ui]
 ```
 
 如需启用其它可选功能 (Web UI、图片转文字、额外后端等), 请参见: [安装指南](https://github.com/spiritLHLS/novel-downloader/blob/main/docs/guide/installation.md)
+
+图片章节转文字需要安装 `image-utils`、`paddlepaddle` 与 `paddleocr`, 并在 `settings.toml` 的 `[general.parser]` 中设置 `enable_ocr = true`。对飞卢等图片 VIP 章节, 程序会先做站点专属图像预处理再 OCR; 若 OCR 无结果或异常, HTML/EPUB 导出会保留原始图片作为回退。
 
 ---
 

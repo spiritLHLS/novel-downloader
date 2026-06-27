@@ -44,6 +44,7 @@ enable_ocr = false                 # 是否尝试本地解析混淆字体 / 图�
 batch_size = 32
 
 remove_watermark = false           # 图片章节是否尝试去水印
+cut_mode = "none"                  # 图片章节无法 OCR 时的切图回退模式（主要用于 ciweimao）
 
 # 以下为 PaddleOCR 文本识别的可选参数
 model_name = "PP-OCRv5_mobile_rec"
@@ -97,6 +98,7 @@ request_interval = 2.5
 [sites.faloo]
 request_interval = 3.0
 login_required = true
+# VIP 图片章节需要有效 Cookie；启用 [general.parser].enable_ocr 后会自动做飞卢专属图像预处理
 
 [sites.ciyuanji]
 login_required = true

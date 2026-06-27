@@ -6,6 +6,7 @@ novel_downloader.plugins.sites.faloo.parser
 
 import base64
 import logging
+from numbers import Real
 from typing import Any
 
 from lxml import html
@@ -212,22 +213,40 @@ class FalooParser(BaseParser):
             if not img_b64:
                 continue
 
+            fallback_resource: MediaResource = {
+                "type": "image",
+                "paragraph_index": idx,
+                "base64": img_b64,
+                "mime": "image/gif",
+            }
             if not self._enable_ocr:
                 logger.warning(
                     "faloo chapter %s :: VIP chapter not decoded "
                     "(enable enable_ocr to OCR)",
                     chapter_id,
                 )
-                resources.append(
-                    {
-                        "type": "image",
-                        "paragraph_index": idx,
-                        "base64": img_b64,
-                        "mime": "image/gif",
-                    }
-                )
+                resources.append(fallback_resource)
             else:
-                parsed = self.parse_image_chapter(img_b64)
+                try:
+                    parsed = self.parse_image_chapter(img_b64)
+                except Exception as e:
+                    logger.warning(
+                        "faloo chapter %s :: VIP OCR failed, keeping image fallback",
+                        chapter_id,
+                        exc_info=e,
+                    )
+                    resources.append(fallback_resource)
+                    continue
+
+                if not parsed:
+                    logger.warning(
+                        "faloo chapter %s :: VIP OCR returned no text, "
+                        "keeping image fallback",
+                        chapter_id,
+                    )
+                    resources.append(fallback_resource)
+                    continue
+
                 paragraphs.extend(parsed)
                 idx += len(parsed)
 
@@ -249,15 +268,25 @@ class FalooParser(BaseParser):
 
     def parse_image_chapter(self, img_base64: str) -> list[str]:
         from novel_downloader.libs import image_utils
+        from novel_downloader.plugins.utils.faloo import prepare_ocr_lines
 
         img_bytes = base64.b64decode(img_base64)
         paragraphs: list[str] = []
         cache: list[str] = []
 
-        img_arr = image_utils.load_image_array_bytes(img_bytes)
-        img_lines = image_utils.split_by_white_lines(img_arr)
+        img_arr = image_utils.load_image_array_bytes(img_bytes, white_bg=True)
+        img_lines = prepare_ocr_lines(
+            img_arr,
+            remove_watermark=self._remove_watermark,
+        )
+        if not img_lines:
+            return []
 
-        preds = self._extract_text_from_image(img_lines, batch_size=self._batch_size)
+        ocr_lines = [image_utils.trim_blank_columns(line) for line in img_lines]
+        preds = self._extract_text_from_image(ocr_lines, batch_size=self._batch_size)
+        if not self._is_usable_ocr_result(preds):
+            return []
+
         for line, (text, _) in zip(img_lines, preds, strict=False):
             if cache and image_utils.is_new_paragraph(line, paragraph_threshold=30):
                 paragraphs.append("".join(cache))
@@ -271,6 +300,22 @@ class FalooParser(BaseParser):
             paragraphs.append("".join(cache))
 
         return paragraphs
+
+    @staticmethod
+    def _is_usable_ocr_result(preds: list[tuple[str, Any]]) -> bool:
+        if not preds:
+            return False
+
+        non_empty = [(text, score) for text, score in preds if text and text.strip()]
+        if len(non_empty) / len(preds) < 0.4:
+            return False
+
+        scores = [
+            float(score)
+            for _, score in non_empty
+            if isinstance(score, Real)
+        ]
+        return not scores or sum(scores) / len(scores) >= 0.45
 
     def _extract_chapters_in_box(
         self, box_elem: html.HtmlElement

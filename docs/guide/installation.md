@@ -190,10 +190,16 @@ paddlepaddle==3.1.1
 
 ```toml
 [general.parser]
-enable_ocr = true  # 是否尝试本地解码混淆字体
+enable_ocr = true  # 是否尝试本地解码混淆字体 / 图片章节
 batch_size = 32
 model_name = "PP-OCRv5_mobile_rec"
 ```
+
+说明:
+
+* 飞卢 (`faloo`) VIP 章节以图片返回, 需要有效 Cookie; 启用 OCR 后会先进行站点专属去干扰预处理, 再送入 PaddleOCR
+* OCR 无结果或运行异常时, HTML/EPUB 导出会保留原始图片作为回退; TXT 导出只包含成功识别出的文本
+* 如需尝试额外去除图片水印, 可设置 `remove_watermark = true`, 但不同站点效果会有差异
 
 ---
 

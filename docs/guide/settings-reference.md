@@ -77,6 +77,7 @@
 | `enable_ocr`       | `bool`         | false      | 是否启用本地 OCR, 用于识别混淆字体或图片章节文本                |
 | `batch_size`       | `int`          | 32         | OCR 模型推理时的批处理大小                                    |
 | `remove_watermark` | `bool`         | false      | 是否尝试对图片章节进行去水印 (部分站点支持)                     |
+| `cut_mode`         | `str`          | `"none"`   | 图片章节无法 OCR 时的切图回退模式; 目前主要用于 `ciweimao`       |
 | `model_name`       | `str/None`     | None       | OCR 模型名称, 如果设置为 `None`, 则使用 `PP-OCRv5_server_rec`  |
 | `model_dir`        | `str/None`     | None       | OCR 模型存储路径                                              |
 | `input_shape`      | `tuple/None`   | None       | OCR 模型输入图像尺寸, 格式为 (C, H, W)                         |
@@ -89,6 +90,12 @@
 **混淆字体章节**
 
 * 若未开启解析或解析失败, 程序将在导出 EPUB/HTML 时自动嵌入对应字体文件, 确保显示正常
+
+**图片章节**
+
+* 启用 `enable_ocr` 后, 支持图片章节的站点会把图片切分为 OCR 行并识别为正文文本
+* 飞卢 (`faloo`) VIP 图片章节会自动执行站点专属去干扰预处理; 若 OCR 异常或未返回可用文本, HTML/EPUB 导出会保留原始图片作为回退
+* TXT 导出只能包含已识别出的文本, 因此图片章节的 TXT 质量取决于 OCR 环境与模型效果
 
 依赖说明:
 

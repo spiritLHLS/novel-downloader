@@ -51,3 +51,11 @@ https://b.faloo.com/1482723_1.html
 
 * 免费章节可直接阅读
 * **VIP 章节需要有效 Cookie 才能下载**
+
+---
+
+## VIP 图片章节与 OCR
+
+* VIP 章节由站点返回图片内容, 需要在 `[general.parser]` 中启用 `enable_ocr = true` 才会尝试转为文本。
+* 解析器会自动对飞卢图片章节进行专属去干扰预处理, 再送入 PaddleOCR 识别。
+* 若 OCR 异常或没有可用文本, HTML/EPUB 导出会保留原始图片作为回退; TXT 导出只包含成功识别出的文本。
