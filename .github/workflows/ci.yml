@@ -428,7 +428,7 @@ jobs:
 
       - name: Publish to PyPI (API token)
         if: env.PYPI_API_TOKEN != ''
-        uses: pypa/gh-action-pypi-publish@v1.14.0
+        uses: pypa/gh-action-pypi-publish@v1.14.1
         with:
           user: __token__
           password: ${{ env.PYPI_API_TOKEN }}
